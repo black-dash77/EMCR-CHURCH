@@ -1,0 +1,65 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase",
+        "--access-token",
+        "sbp_9fb1c932a13e9c286ce4303ac4ced2c6f0524e7a"
+      ]
+    },
+    "netlify": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@netlify/mcp"
+      ],
+      "env": {
+        "NETLIFY_ACCESS_TOKEN": "nfp_kKNx2UkByD5jXSweQqzmvfenG9ZZgYKr8e9b"
+      }
+    },
+    "stripe": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@stripe/mcp",
+        "--tools=all"
+      ],
+      "env": {
+        "STRIPE_SECRET_KEY": "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"
+      }
+    },
+    "github": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "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"
+      }
+    },
+    "sentry": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@sentry/mcp-server@latest"
+      ],
+      "env": {
+        "SENTRY_ACCESS_TOKEN": "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"
+      }
+    },
+    "resend": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "resend-mcp"
+      ],
+      "env": {
+        "RESEND_API_KEY": "re_hzUKauUU_HKMocCDUdug8iPuLtXwz18Aq",
+        "SENDER_EMAIL_ADDRESS": "kiye.mateus7@gmail.com"
+      }
+    }
+  }
+}

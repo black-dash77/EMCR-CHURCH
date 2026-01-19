@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(timeout 15 npx expo:*)",
+      "mcp__supabase__list_projects",
+      "mcp__supabase__execute_sql",
+      "Bash(pkill:*)",
+      "Bash(npx expo start)",
+      "Bash(npx eas-cli:*)",
+      "Bash(eas build:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "supabase",
+    "netlify",
+    "stripe",
+    "github",
+    "sentry",
+    "resend"
+  ]
+}

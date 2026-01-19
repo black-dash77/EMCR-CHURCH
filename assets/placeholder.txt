@@ -1,0 +1,17 @@
+EMCR Church - Assets Placeholder
+
+Les fichiers suivants sont requis pour l'app:
+- icon.png (1024x1024) - Icône principale de l'app
+- adaptive-icon.png (1024x1024) - Icône Android adaptive
+- splash-icon.png (512x512) - Image de l'écran de démarrage
+- notification-icon.png (96x96) - Icône des notifications
+- favicon.png (48x48) - Favicon pour le web
+
+Couleur primaire: #1A4BFF (bleu EMCR)
+
+Pour créer ces images:
+1. Utilisez le logo de l'église
+2. Centrez-le sur un fond de couleur #1A4BFF ou transparent
+3. Exportez aux tailles indiquées
+
+Pour tester sans icônes personnalisées, Expo utilisera des icônes par défaut.

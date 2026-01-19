@@ -1,0 +1,34 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@components/*": ["src/components/*"],
+      "@hooks/*": ["src/hooks/*"],
+      "@stores/*": ["src/stores/*"],
+      "@services/*": ["src/services/*"],
+      "@theme/*": ["src/theme/*"],
+      "@types/*": ["src/types/*"],
+      "@utils/*": ["src/utils/*"],
+      "@assets/*": ["assets/*"]
+    },
+    "jsx": "react-jsx",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "noEmit": true
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

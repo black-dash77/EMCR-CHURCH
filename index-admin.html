@@ -1,0 +1,2608 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Administration - EMCR-CHURCH</title>
+
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'Roboto', 'Arial', 'sans-serif'] },
+          boxShadow: { soft: '0 10px 30px -15px rgb(0 0 0 / .15)' },
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root { --ring: 0 0 0 3px rgba(59,130,246,.45); }
+    *:focus-visible { outline: none !important; box-shadow: var(--ring); }
+    html { transition: background-color .25s ease, color .25s ease; }
+    
+    .drag-over {
+      border-color: #3b82f6 !important;
+      background-color: rgba(59, 130, 246, 0.05) !important;
+    }
+    
+    .uploading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+  </style>
+
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2.39.0/dist/umd/supabase.js"></script>
+</head>
+
+<body class="antialiased bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, createContext, useContext, useRef } = React;
+
+    // ============================================
+    // SUPABASE CLIENT
+    // ============================================
+    const SUPABASE_URL = "https://aercvkkvzqqayegtjaqm.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFlcmN2a2t2enFxYXllZ3RqYXFtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1MzkzODgsImV4cCI6MjA3NzExNTM4OH0.PGEy7phGdt5WkC6v_MDfV7xT91W0aavmrCo9NteHjmc";
+
+    let supabaseClient = null;
+
+    const initSupabase = () => {
+      if (supabaseClient) return supabaseClient;
+      if (window.supabase) {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        return supabaseClient;
+      }
+      console.error('Supabase library not loaded');
+      return null;
+    };
+
+    // ============================================
+    // HEROICONS SVG COMPONENTS
+    // ============================================
+    const SunIcon = () => (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+    );
+
+    const MoonIcon = () => (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+      </svg>
+    );
+
+    const MicrophoneIcon = () => (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+      </svg>
+    );
+
+    const CalendarIcon = () => (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    );
+
+    const MegaphoneIcon = () => (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+      </svg>
+    );
+
+    const UsersIcon = () => (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+    );
+
+    const CameraIcon = () => (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    );
+
+    const ChatIcon = () => (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+      </svg>
+    );
+
+    const HomeIcon = () => (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+      </svg>
+    );
+
+    const AlertIcon = () => (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+    );
+
+    const UserIcon = () => (
+      <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+      </svg>
+    );
+
+    const MusicalNoteIcon = () => (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+      </svg>
+    );
+
+    const FireIcon = () => (
+      <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+      </svg>
+    );
+
+    const HandRaisedIcon = () => (
+      <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
+      </svg>
+    );
+
+    const GlobeAltIcon = () => (
+      <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+      </svg>
+    );
+
+    const MINISTRY_ICONS = {
+      'musical-note': MusicalNoteIcon,
+      'users': UsersIcon,
+      'microphone': MicrophoneIcon,
+      'fire': FireIcon,
+      'hand-raised': HandRaisedIcon,
+      'globe-alt': GlobeAltIcon,
+    };
+
+    // ============================================
+    // UTILITY FUNCTIONS
+    // ============================================
+    const cls = (...xs) => xs.filter(Boolean).join(' ');
+    
+    const formatDate = (date) => {
+      const d = typeof date === 'string' ? new Date(date) : date;
+      return d.toLocaleDateString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    };
+
+    const formatDateTime = (date) => {
+      const d = typeof date === 'string' ? new Date(date) : date;
+      return d.toLocaleString('fr-FR', { 
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    };
+
+    // ============================================
+    // CONTEXT
+    // ============================================
+    const AdminContext = createContext(null);
+    const useAdmin = () => useContext(AdminContext);
+
+    // ============================================
+    // MAIN ADMIN APP
+    // ============================================
+    function AdminApp() {
+      const [darkMode, setDarkMode] = useState(() => {
+        const saved = localStorage.getItem('darkMode');
+        return saved ? JSON.parse(saved) : false;
+      });
+      
+      const [activeSection, setActiveSection] = useState('sermons');
+      const [loading, setLoading] = useState(true);
+      
+      const [sermons, setSermons] = useState([]);
+      const [events, setEvents] = useState([]);
+      const [announcements, setAnnouncements] = useState([]);
+      const [members, setMembers] = useState([]);
+      const [medias, setMedias] = useState([]);
+      const [messages, setMessages] = useState([]);
+      const [ministries, setMinistries] = useState([]);
+
+      useEffect(() => {
+        document.documentElement.classList.toggle('dark', darkMode);
+        localStorage.setItem('darkMode', JSON.stringify(darkMode));
+      }, [darkMode]);
+
+      useEffect(() => {
+        let sermonsChannel, eventsChannel, announcementsChannel, membersChannel, mediasChannel, messagesChannel, ministriesChannel;
+
+        const loadAllData = async () => {
+          try {
+            const sb = initSupabase();
+
+            if (!sb) {
+              console.log('Supabase not initialized');
+              setLoading(false);
+              return;
+            }
+
+            setLoading(true);
+
+            const { data: sermonsData } = await sb.from('sermons').select('*').order('date', { ascending: false });
+            if (sermonsData) setSermons(sermonsData);
+
+            const { data: eventsData } = await sb.from('events').select('*').order('date', { ascending: true });
+            if (eventsData) setEvents(eventsData);
+
+            const { data: announcementsData } = await sb.from('announcements').select('*').order('date', { ascending: false });
+            if (announcementsData) setAnnouncements(announcementsData);
+
+            const { data: membersData } = await sb.from('members').select('*').order('name', { ascending: true });
+            if (membersData) setMembers(membersData);
+
+            const { data: mediasData } = await sb.from('photos').select('*').order('created_at', { ascending: false });
+            if (mediasData) setMedias(mediasData);
+
+            const { data: messagesData } = await sb.from('contact_messages').select('*').order('created_at', { ascending: false });
+            if (messagesData) setMessages(messagesData);
+
+            const { data: ministriesData } = await sb.from('ministries').select('*').order('display_order', { ascending: true });
+            if (ministriesData) setMinistries(ministriesData);
+
+            sermonsChannel = sb.channel('sermons-admin').on('postgres_changes', { event: '*', schema: 'public', table: 'sermons' }, (payload) => {
+              if (payload.eventType === 'INSERT') setSermons(prev => [payload.new, ...prev]);
+              else if (payload.eventType === 'UPDATE') setSermons(prev => prev.map(s => s.id === payload.new.id ? payload.new : s));
+              else if (payload.eventType === 'DELETE') setSermons(prev => prev.filter(s => s.id !== payload.old.id));
+            }).subscribe();
+
+            eventsChannel = sb.channel('events-admin').on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, (payload) => {
+              if (payload.eventType === 'INSERT') setEvents(prev => [...prev, payload.new].sort((a,b) => new Date(a.date) - new Date(b.date)));
+              else if (payload.eventType === 'UPDATE') setEvents(prev => prev.map(e => e.id === payload.new.id ? payload.new : e));
+              else if (payload.eventType === 'DELETE') setEvents(prev => prev.filter(e => e.id !== payload.old.id));
+            }).subscribe();
+
+            announcementsChannel = sb.channel('announcements-admin').on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, (payload) => {
+              if (payload.eventType === 'INSERT') setAnnouncements(prev => [payload.new, ...prev]);
+              else if (payload.eventType === 'UPDATE') setAnnouncements(prev => prev.map(a => a.id === payload.new.id ? payload.new : a));
+              else if (payload.eventType === 'DELETE') setAnnouncements(prev => prev.filter(a => a.id !== payload.old.id));
+            }).subscribe();
+
+            membersChannel = sb.channel('members-admin').on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, (payload) => {
+              if (payload.eventType === 'INSERT') setMembers(prev => [...prev, payload.new].sort((a,b) => a.name.localeCompare(b.name)));
+              else if (payload.eventType === 'UPDATE') setMembers(prev => prev.map(m => m.id === payload.new.id ? payload.new : m));
+              else if (payload.eventType === 'DELETE') setMembers(prev => prev.filter(m => m.id !== payload.old.id));
+            }).subscribe();
+
+            mediasChannel = sb.channel('medias-admin').on('postgres_changes', { event: '*', schema: 'public', table: 'photos' }, (payload) => {
+              if (payload.eventType === 'INSERT') setMedias(prev => [payload.new, ...prev]);
+              else if (payload.eventType === 'UPDATE') setMedias(prev => prev.map(p => p.id === payload.new.id ? payload.new : p));
+              else if (payload.eventType === 'DELETE') setMedias(prev => prev.filter(p => p.id !== payload.old.id));
+            }).subscribe();
+
+            messagesChannel = sb.channel('messages-admin').on('postgres_changes', { event: '*', schema: 'public', table: 'contact_messages' }, (payload) => {
+              if (payload.eventType === 'INSERT') setMessages(prev => [payload.new, ...prev]);
+              else if (payload.eventType === 'UPDATE') setMessages(prev => prev.map(m => m.id === payload.new.id ? payload.new : m));
+              else if (payload.eventType === 'DELETE') setMessages(prev => prev.filter(m => m.id !== payload.old.id));
+            }).subscribe();
+
+            ministriesChannel = sb.channel('ministries-admin').on('postgres_changes', { event: '*', schema: 'public', table: 'ministries' }, (payload) => {
+              if (payload.eventType === 'INSERT') {
+                setMinistries(prev => [...prev, payload.new].sort((a,b) => a.display_order - b.display_order));
+              } else if (payload.eventType === 'UPDATE') {
+                setMinistries(prev => prev.map(m => m.id === payload.new.id ? payload.new : m).sort((a,b) => a.display_order - b.display_order));
+              } else if (payload.eventType === 'DELETE') {
+                setMinistries(prev => prev.filter(m => m.id !== payload.old.id));
+              }
+            }).subscribe();
+
+            setLoading(false);
+          } catch (error) {
+            console.error('Error loading data:', error);
+            setLoading(false);
+          }
+        };
+
+        loadAllData();
+
+        return () => {
+          if (sermonsChannel) sermonsChannel.unsubscribe();
+          if (eventsChannel) eventsChannel.unsubscribe();
+          if (announcementsChannel) announcementsChannel.unsubscribe();
+          if (membersChannel) membersChannel.unsubscribe();
+          if (mediasChannel) mediasChannel.unsubscribe();
+          if (messagesChannel) messagesChannel.unsubscribe();
+          if (ministriesChannel) ministriesChannel.unsubscribe();
+        };
+      }, []);
+
+      const contextValue = {
+        darkMode, setDarkMode,
+        sermons, setSermons,
+        events, setEvents,
+        announcements, setAnnouncements,
+        members, setMembers,
+        medias, setMedias,
+        messages, setMessages,
+        ministries, setMinistries,
+        loading
+      };
+
+      return (
+        <AdminContext.Provider value={contextValue}>
+          <div className="min-h-screen flex bg-white dark:bg-slate-950">
+            <Sidebar activeSection={activeSection} setActiveSection={setActiveSection} />
+            <main className="flex-1 overflow-y-auto">
+              <Header />
+              <div className="p-6 md:p-10">
+                {loading ? (
+                  <div className="flex items-center justify-center py-32">
+                    <div className="text-center">
+                      <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                      <p className="text-slate-600 dark:text-slate-400">Chargement...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {activeSection === 'sermons' && <SermonsSection />}
+                    {activeSection === 'events' && <EventsSection />}
+                    {activeSection === 'announcements' && <AnnouncementsSection />}
+                    {activeSection === 'members' && <MembersSection />}
+                    {activeSection === 'medias' && <MediasSection />}
+                    {activeSection === 'messages' && <MessagesSection />}
+                    {activeSection === 'ministries' && <MinistriesSection />}
+                  </>
+                )}
+              </div>
+            </main>
+          </div>
+        </AdminContext.Provider>
+      );
+    }
+
+    // ============================================
+    // SIDEBAR COMPONENT
+    // ============================================
+    function Sidebar({ activeSection, setActiveSection }) {
+      const { sermons, events, announcements, members, medias, messages, ministries } = useAdmin();
+
+      const sections = [
+        { id: 'sermons', icon: <MicrophoneIcon />, label: 'Prédications', count: sermons.length },
+        { id: 'events', icon: <CalendarIcon />, label: 'Événements', count: events.length },
+        { id: 'announcements', icon: <MegaphoneIcon />, label: 'Annonces', count: announcements.length },
+        { id: 'members', icon: <UsersIcon />, label: 'Membres', count: members.length },
+        { id: 'medias', icon: <CameraIcon />, label: 'Médias', count: medias.length },
+        { id: 'ministries', icon: <MusicalNoteIcon />, label: 'Ministères', count: ministries.length },
+        { id: 'messages', icon: <ChatIcon />, label: 'Messages', count: messages.length },
+      ];
+
+      return (
+        <aside className="w-64 bg-slate-900 dark:bg-slate-950 border-r border-slate-800 flex flex-col">
+          <div className="p-6 border-b border-slate-800">
+            <h1 className="text-xl font-bold text-white">Admin EMCR</h1>
+            <p className="text-xs text-slate-400 mt-1">Panneau d'administration</p>
+          </div>
+          
+          <nav className="flex-1 p-4 space-y-1">
+            {sections.map(section => (
+              <button
+                key={section.id}
+                onClick={() => setActiveSection(section.id)}
+                className={cls(
+                  "w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition",
+                  activeSection === section.id
+                    ? "bg-blue-600 text-white"
+                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                )}
+              >
+                <span className="flex items-center gap-3">
+                  {section.icon}
+                  <span>{section.label}</span>
+                </span>
+                <span className={cls(
+                  "px-2 py-0.5 rounded-full text-xs",
+                  activeSection === section.id
+                    ? "bg-white/20"
+                    : "bg-slate-800"
+                )}>
+                  {section.count}
+                </span>
+              </button>
+            ))}
+          </nav>
+
+          <div className="p-4 border-t border-slate-800">
+            <a href="/" className="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg transition">
+              <HomeIcon />
+              <span>Retour au site</span>
+            </a>
+          </div>
+        </aside>
+      );
+    }
+
+    // ============================================
+    // HEADER COMPONENT
+    // ============================================
+    function Header() {
+      const { darkMode, setDarkMode } = useAdmin();
+
+      return (
+        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 md:px-10 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Tableau de bord</h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                Gérez votre contenu en temps réel
+              </p>
+            </div>
+            <button
+              onClick={() => setDarkMode(v => !v)}
+              className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              aria-label="Toggle dark mode"
+            >
+              {darkMode ? <MoonIcon /> : <SunIcon />}
+            </button>
+          </div>
+        </header>
+      );
+    }
+
+    // ============================================
+    // SERMONS SECTION
+    // ============================================
+    function SermonsSection() {
+      const { sermons } = useAdmin();
+      const [showModal, setShowModal] = useState(false);
+      const [editingItem, setEditingItem] = useState(null);
+      const [searchTerm, setSearchTerm] = useState('');
+
+      const filtered = useMemo(() => {
+        if (!searchTerm) return sermons;
+        const q = searchTerm.toLowerCase();
+        return sermons.filter(s => 
+          s.title?.toLowerCase().includes(q) || 
+          s.speaker?.toLowerCase().includes(q)
+        );
+      }, [sermons, searchTerm]);
+
+      const handleDelete = async (id) => {
+        if (!confirm('Supprimer cette prédication ?')) return;
+        const sb = initSupabase();
+        const { error } = await sb.from('sermons').delete().eq('id', id);
+        if (error) alert('Erreur: ' + error.message);
+      };
+
+      return (
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex-1 max-w-md">
+              <input
+                type="text"
+                placeholder="Rechercher..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
+              />
+            </div>
+            <button
+              onClick={() => { setEditingItem(null); setShowModal(true); }}
+              className="ml-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+            >
+              + Ajouter
+            </button>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Titre</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Orateur</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Durée</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                {filtered.map(sermon => (
+                  <tr key={sermon.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                    <td className="px-6 py-4 text-sm font-medium text-slate-900 dark:text-white">{sermon.title}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{sermon.speaker}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{formatDate(sermon.date)}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{sermon.duration}</td>
+                    <td className="px-6 py-4 text-right space-x-2">
+                      <button
+                        onClick={() => { setEditingItem(sermon); setShowModal(true); }}
+                        className="px-3 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-700"
+                      >
+                        Éditer
+                      </button>
+                      <button
+                        onClick={() => handleDelete(sermon.id)}
+                        className="px-3 py-1 text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-900/50"
+                      >
+                        Supprimer
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {showModal && <SermonModal item={editingItem} onClose={() => setShowModal(false)} />}
+        </div>
+      );
+    }
+
+    function SermonModal({ item, onClose }) {
+      const [formData, setFormData] = useState({
+        title: item?.title || '',
+        speaker: item?.speaker || '',
+        date: item?.date ? new Date(item.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        duration: item?.duration || '',
+        series: item?.series || '',
+        year: item?.year || new Date().getFullYear(),
+        audio_url: item?.audio_url || '',
+        download_url: item?.download_url || '',
+        cover_image: item?.cover_image || '',
+      });
+      const [uploading, setUploading] = useState(false);
+      const [uploadingCover, setUploadingCover] = useState(false);
+      const fileInputRef = useRef(null);
+      const coverInputRef = useRef(null);
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setUploading(true);
+        
+        const sb = initSupabase();
+        const data = { ...formData, year: parseInt(formData.year) };
+
+        let error;
+        if (item) {
+          ({ error } = await sb.from('sermons').update(data).eq('id', item.id));
+        } else {
+          ({ error } = await sb.from('sermons').insert([data]));
+        }
+
+        setUploading(false);
+        if (error) {
+          alert('Erreur: ' + error.message);
+        } else {
+          onClose();
+        }
+      };
+
+      const handleFileUpload = async (file) => {
+        if (!file) return;
+        setUploading(true);
+
+        const sb = initSupabase();
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { data, error } = await sb.storage.from('sermons-audio').upload(filePath, file);
+
+        if (error) {
+          alert('Erreur upload: ' + error.message);
+          setUploading(false);
+          return;
+        }
+
+        const { data: { publicUrl } } = sb.storage.from('sermons-audio').getPublicUrl(filePath);
+        setFormData(prev => ({ ...prev, audio_url: publicUrl, download_url: publicUrl }));
+        setUploading(false);
+      };
+
+      const handleCoverUpload = async (file) => {
+        if (!file) return;
+        setUploadingCover(true);
+
+        const sb = initSupabase();
+        const fileExt = file.name.split('.').pop();
+        const fileName = `cover_${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { data, error } = await sb.storage.from('sermon-covers').upload(filePath, file);
+
+        if (error) {
+          alert('Erreur upload image: ' + error.message);
+          setUploadingCover(false);
+          return;
+        }
+
+        const { data: { publicUrl } } = sb.storage.from('sermon-covers').getPublicUrl(filePath);
+        setFormData(prev => ({ ...prev, cover_image: publicUrl }));
+        setUploadingCover(false);
+      };
+
+      const handleDrop = (e) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files[0];
+        if (file) handleFileUpload(file);
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+          <div className="bg-white dark:bg-slate-900 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-200 dark:border-slate-800">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                {item ? 'Modifier la prédication' : 'Nouvelle prédication'}
+              </h3>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Titre *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.title}
+                  onChange={e => setFormData({...formData, title: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Orateur *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.speaker}
+                    onChange={e => setFormData({...formData, speaker: e.target.value})}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Date *</label>
+                  <input
+                    type="date"
+                    required
+                    value={formData.date}
+                    onChange={e => setFormData({...formData, date: e.target.value})}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Durée</label>
+                  <input
+                    type="text"
+                    placeholder="ex: 45:30"
+                    value={formData.duration}
+                    onChange={e => setFormData({...formData, duration: e.target.value})}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Série</label>
+                  <input
+                    type="text"
+                    value={formData.series}
+                    onChange={e => setFormData({...formData, series: e.target.value})}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Image de couverture</label>
+                <div className="border-2 border-dashed rounded-lg p-4 text-center border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 transition">
+                  {formData.cover_image ? (
+                    <div className="flex items-center gap-4">
+                      <img src={formData.cover_image} alt="Cover" className="w-24 h-24 object-cover rounded-lg" />
+                      <div className="flex-1 text-left">
+                        <p className="text-sm text-green-600 dark:text-green-400 mb-2">✓ Image uploadée</p>
+                        <button
+                          type="button"
+                          onClick={() => coverInputRef.current?.click()}
+                          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          Remplacer
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({...formData, cover_image: ''})}
+                          className="text-sm text-red-600 dark:text-red-400 hover:underline ml-4"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      {uploadingCover ? (
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Upload en cours...</p>
+                      ) : (
+                        <>
+                          <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+                            Format: JPG, PNG, WebP (recommandé: 500x500px)
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => coverInputRef.current?.click()}
+                            className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-700 transition text-sm"
+                          >
+                            Choisir une image
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  <input
+                    ref={coverInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => handleCoverUpload(e.target.files[0])}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Fichier audio</label>
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={e => e.preventDefault()}
+                  className={cls(
+                    "border-2 border-dashed rounded-lg p-8 text-center transition",
+                    uploading ? "uploading" : "",
+                    "border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500"
+                  )}
+                >
+                  {formData.audio_url ? (
+                    <div>
+                      <p className="text-sm text-green-600 dark:text-green-400 mb-2">✓ Fichier uploadé</p>
+                      <audio controls className="w-full mb-2">
+                        <source src={formData.audio_url} />
+                      </audio>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        Remplacer
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+                        Glissez un fichier audio ici ou
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+                      >
+                        Parcourir
+                      </button>
+                    </div>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="audio/*"
+                    className="hidden"
+                    onChange={e => handleFileUpload(e.target.files[0])}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-6 py-2 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-900 dark:text-white"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploading}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {uploading ? 'Enregistrement...' : 'Enregistrer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+// ============================================
+    // EVENTS SECTION (avec types dynamiques)
+    // ============================================
+    function EventsSection() {
+      const { events } = useAdmin();
+      const [showModal, setShowModal] = useState(false);
+      const [editingItem, setEditingItem] = useState(null);
+      const [searchTerm, setSearchTerm] = useState('');
+      const [typeFilter, setTypeFilter] = useState('Tous');
+
+      const eventTypes = useMemo(() => {
+        const types = [...new Set(events.map(e => e.type).filter(Boolean))];
+        return ['Tous', ...types.sort()];
+      }, [events]);
+
+      const filtered = useMemo(() => {
+        let list = events;
+        if (searchTerm) {
+          const q = searchTerm.toLowerCase();
+          list = list.filter(e => 
+            e.title?.toLowerCase().includes(q) || 
+            e.location?.toLowerCase().includes(q)
+          );
+        }
+        if (typeFilter !== 'Tous') {
+          list = list.filter(e => e.type === typeFilter);
+        }
+        return list;
+      }, [events, searchTerm, typeFilter]);
+
+      const handleDelete = async (id) => {
+        if (!confirm('Supprimer cet événement ?')) return;
+        const sb = initSupabase();
+        const { error } = await sb.from('events').delete().eq('id', id);
+        if (error) alert('Erreur: ' + error.message);
+      };
+
+      return (
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex gap-3 flex-1">
+              <input
+                type="text"
+                placeholder="Rechercher..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-full max-w-md px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
+              />
+              <select
+                value={typeFilter}
+                onChange={e => setTypeFilter(e.target.value)}
+                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
+              >
+                {eventTypes.map(type => <option key={type} value={type}>Type: {type}</option>)}
+              </select>
+            </div>
+            <button
+              onClick={() => { setEditingItem(null); setShowModal(true); }}
+              className="ml-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+            >
+              + Ajouter
+            </button>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map(event => (
+              <div key={event.id} className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden hover:shadow-lg transition">
+                {event.image && (
+                  <div className="aspect-video overflow-hidden bg-slate-200 dark:bg-slate-800">
+                    <img src={event.image} alt={event.title} className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <div className="p-4">
+                  <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2">
+                    <span>{formatDate(event.date)}</span>
+                    {event.type && (
+                      <>
+                        <span>•</span>
+                        <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded">{event.type}</span>
+                      </>
+                    )}
+                  </div>
+                  <h3 className="font-bold text-slate-900 dark:text-white mb-2 line-clamp-2">{event.title}</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">{event.time}</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mb-3">{event.location}</p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setEditingItem(event); setShowModal(true); }}
+                      className="flex-1 px-3 py-1.5 text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-700"
+                    >
+                      Éditer
+                    </button>
+                    <button
+                      onClick={() => handleDelete(event.id)}
+                      className="px-3 py-1.5 text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-900/50"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {showModal && <EventModal item={editingItem} onClose={() => setShowModal(false)} />}
+        </div>
+      );
+    }
+
+    function EventModal({ item, onClose }) {
+      const [formData, setFormData] = useState({
+        title: item?.title || '',
+        date: item?.date ? new Date(item.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        time: item?.time || '',
+        location: item?.location || '',
+        description: item?.description || '',
+        type: item?.type || '',
+        image: item?.image || '',
+      });
+      const [uploading, setUploading] = useState(false);
+      const fileInputRef = useRef(null);
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setUploading(true);
+        
+        const sb = initSupabase();
+        const data = { ...formData };
+
+        let error;
+        if (item) {
+          ({ error } = await sb.from('events').update(data).eq('id', item.id));
+        } else {
+          ({ error } = await sb.from('events').insert([data]));
+        }
+
+        setUploading(false);
+        if (error) {
+          alert('Erreur: ' + error.message);
+        } else {
+          onClose();
+        }
+      };
+
+      const handleFileUpload = async (file) => {
+        if (!file) return;
+        setUploading(true);
+
+        const sb = initSupabase();
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { data, error } = await sb.storage.from('events-images').upload(filePath, file);
+
+        if (error) {
+          alert('Erreur upload: ' + error.message);
+          setUploading(false);
+          return;
+        }
+
+        const { data: { publicUrl } } = sb.storage.from('events-images').getPublicUrl(filePath);
+        setFormData(prev => ({ ...prev, image: publicUrl }));
+        setUploading(false);
+      };
+
+      const handleDrop = (e) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) handleFileUpload(file);
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+          <div className="bg-white dark:bg-slate-900 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-200 dark:border-slate-800">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                {item ? 'Modifier l\'événement' : 'Nouvel événement'}
+              </h3>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Titre *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.title}
+                  onChange={e => setFormData({...formData, title: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Date *</label>
+                  <input
+                    type="date"
+                    required
+                    value={formData.date}
+                    onChange={e => setFormData({...formData, date: e.target.value})}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Horaire</label>
+                  <input
+                    type="text"
+                    placeholder="ex: 10h00 - 12h00"
+                    value={formData.time}
+                    onChange={e => setFormData({...formData, time: e.target.value})}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Type</label>
+                <input
+                  type="text"
+                  placeholder="ex: Cultes, Formations, Sorties..."
+                  value={formData.type}
+                  onChange={e => setFormData({...formData, type: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Lieu</label>
+                <input
+                  type="text"
+                  value={formData.location}
+                  onChange={e => setFormData({...formData, location: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Description</label>
+                <textarea
+                  rows="3"
+                  value={formData.description}
+                  onChange={e => setFormData({...formData, description: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Image</label>
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={e => e.preventDefault()}
+                  className={cls(
+                    "border-2 border-dashed rounded-lg p-8 text-center transition",
+                    uploading ? "uploading" : "",
+                    "border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500"
+                  )}
+                >
+                  {formData.image ? (
+                    <div>
+                      <img src={formData.image} alt="Preview" className="w-full h-40 object-cover rounded mb-2" />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        Remplacer
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+                        Glissez une image ici ou
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+                      >
+                        Parcourir
+                      </button>
+                    </div>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => handleFileUpload(e.target.files[0])}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-6 py-2 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-900 dark:text-white"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploading}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {uploading ? 'Enregistrement...' : 'Enregistrer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // ============================================
+    // ANNOUNCEMENTS SECTION (avec types dynamiques)
+    // ============================================
+    function AnnouncementsSection() {
+      const { announcements } = useAdmin();
+      const [showModal, setShowModal] = useState(false);
+      const [editingItem, setEditingItem] = useState(null);
+      const [typeFilter, setTypeFilter] = useState('Toutes');
+
+      const announcementTypes = useMemo(() => {
+        const types = [...new Set(announcements.map(a => a.type).filter(Boolean))];
+        return ['Toutes', 'Urgentes', ...types.sort()];
+      }, [announcements]);
+
+      const filtered = useMemo(() => {
+        if (typeFilter === 'Toutes') return announcements;
+        if (typeFilter === 'Urgentes') return announcements.filter(a => a.urgent);
+        return announcements.filter(a => a.type === typeFilter);
+      }, [announcements, typeFilter]);
+
+      const handleDelete = async (id) => {
+        if (!confirm('Supprimer cette annonce ?')) return;
+        const sb = initSupabase();
+        const { error } = await sb.from('announcements').delete().eq('id', id);
+        if (error) alert('Erreur: ' + error.message);
+      };
+
+      return (
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex gap-2">
+              {announcementTypes.map(type => (
+                <button
+                  key={type}
+                  onClick={() => setTypeFilter(type)}
+                  className={cls(
+                    "px-4 py-2 rounded-lg text-sm font-medium transition",
+                    typeFilter === type
+                      ? "bg-blue-600 text-white"
+                      : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  )}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => { setEditingItem(null); setShowModal(true); }}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+            >
+              + Ajouter
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {filtered.map(announcement => (
+              <div 
+                key={announcement.id} 
+                className={cls(
+                  "bg-white dark:bg-slate-900 rounded-lg border p-6",
+                  announcement.urgent
+                    ? "border-red-500 dark:border-red-600"
+                    : "border-slate-200 dark:border-slate-800"
+                )}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    {announcement.urgent && (
+                      <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded text-xs font-medium mb-2">
+                        <AlertIcon />
+                        Urgent
+                      </span>
+                    )}
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{announcement.title}</h3>
+                    <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mb-3">
+                      <span>{formatDate(announcement.date)}</span>
+                      {announcement.type && (
+                        <>
+                          <span>•</span>
+                          <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">{announcement.type}</span>
+                        </>
+                      )}
+                    </div>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">{announcement.content}</p>
+                  </div>
+                  <div className="flex items-center gap-2 ml-4">
+                    <button
+                      onClick={() => { setEditingItem(announcement); setShowModal(true); }}
+                      className="px-3 py-1.5 text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-700"
+                    >
+                      Éditer
+                    </button>
+                    <button
+                      onClick={() => handleDelete(announcement.id)}
+                      className="px-3 py-1.5 text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-900/50"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {showModal && <AnnouncementModal item={editingItem} onClose={() => setShowModal(false)} />}
+        </div>
+      );
+    }
+
+    function AnnouncementModal({ item, onClose }) {
+      const [formData, setFormData] = useState({
+        title: item?.title || '',
+        content: item?.content || '',
+        date: item?.date ? new Date(item.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        type: item?.type || '',
+        urgent: item?.urgent || false,
+      });
+      const [saving, setSaving] = useState(false);
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        
+        const sb = initSupabase();
+        const data = { ...formData };
+
+        let error;
+        if (item) {
+          ({ error } = await sb.from('announcements').update(data).eq('id', item.id));
+        } else {
+          ({ error } = await sb.from('announcements').insert([data]));
+        }
+
+        setSaving(false);
+        if (error) {
+          alert('Erreur: ' + error.message);
+        } else {
+          onClose();
+        }
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+          <div className="bg-white dark:bg-slate-900 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-200 dark:border-slate-800">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                {item ? 'Modifier l\'annonce' : 'Nouvelle annonce'}
+              </h3>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Titre *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.title}
+                  onChange={e => setFormData({...formData, title: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Contenu *</label>
+                <textarea
+                  rows="6"
+                  required
+                  value={formData.content}
+                  onChange={e => setFormData({...formData, content: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Date</label>
+                  <input
+                    type="date"
+                    value={formData.date}
+                    onChange={e => setFormData({...formData, date: e.target.value})}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Type</label>
+                  <input
+                    type="text"
+                    placeholder="ex: Générales, Administratives..."
+                    value={formData.type}
+                    onChange={e => setFormData({...formData, type: e.target.value})}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.urgent}
+                    onChange={e => setFormData({...formData, urgent: e.target.checked})}
+                    className="w-5 h-5 rounded border-slate-300 dark:border-slate-700"
+                  />
+                  <span className="text-sm font-medium text-slate-900 dark:text-white">
+                    Marquer comme urgente
+                  </span>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-6 py-2 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-900 dark:text-white"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {saving ? 'Enregistrement...' : 'Enregistrer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // ============================================
+    // MEMBERS SECTION (avec catégories dynamiques)
+    // ============================================
+    function MembersSection() {
+      const { members } = useAdmin();
+      const [showModal, setShowModal] = useState(false);
+      const [editingItem, setEditingItem] = useState(null);
+      const [categoryFilter, setCategoryFilter] = useState('Tous');
+
+      const categories = useMemo(() => {
+        const uniqueCats = [...new Set(members.map(m => m.category).filter(Boolean))];
+        const categoriesObj = { 'Tous': 'Tous' };
+        uniqueCats.sort().forEach(cat => {
+          categoriesObj[cat] = cat.charAt(0).toUpperCase() + cat.slice(1);
+        });
+        return categoriesObj;
+      }, [members]);
+
+      const filtered = useMemo(() => {
+        if (categoryFilter === 'Tous') return members;
+        return members.filter(m => m.category === categoryFilter);
+      }, [members, categoryFilter]);
+
+      const handleDelete = async (id) => {
+        if (!confirm('Supprimer ce membre ?')) return;
+        const sb = initSupabase();
+        const { error } = await sb.from('members').delete().eq('id', id);
+        if (error) alert('Erreur: ' + error.message);
+      };
+
+      return (
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex gap-2">
+              {Object.entries(categories).map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setCategoryFilter(key)}
+                  className={cls(
+                    "px-4 py-2 rounded-lg text-sm font-medium transition",
+                    categoryFilter === key
+                      ? "bg-blue-600 text-white"
+                      : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => { setEditingItem(null); setShowModal(true); }}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+            >
+              + Ajouter
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {filtered.map(member => (
+              <div key={member.id} className="group relative bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden hover:shadow-lg transition">
+                <div className="aspect-square overflow-hidden bg-slate-200 dark:bg-slate-800">
+                  {member.photo ? (
+                    <img src={member.photo} alt={member.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-400 p-8">
+                      <UserIcon />
+                    </div>
+                  )}
+                </div>
+                <div className="p-3">
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-white mb-1 line-clamp-1">{member.name}</h3>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mb-2 line-clamp-2">{member.role}</p>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => { setEditingItem(member); setShowModal(true); }}
+                      className="flex-1 px-2 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-700"
+                    >
+                      Éditer
+                    </button>
+                    <button
+                      onClick={() => handleDelete(member.id)}
+                      className="px-2 py-1 text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-900/50"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {showModal && <MemberModal item={editingItem} onClose={() => setShowModal(false)} />}
+        </div>
+      );
+    }
+
+    function MemberModal({ item, onClose }) {
+      const [formData, setFormData] = useState({
+        name: item?.name || '',
+        role: item?.role || '',
+        category: item?.category || '',
+        photo: item?.photo || '',
+      });
+      const [uploading, setUploading] = useState(false);
+      const fileInputRef = useRef(null);
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setUploading(true);
+        
+        const sb = initSupabase();
+        const data = { ...formData };
+
+        let error;
+        if (item) {
+          ({ error } = await sb.from('members').update(data).eq('id', item.id));
+        } else {
+          ({ error } = await sb.from('members').insert([data]));
+        }
+
+        setUploading(false);
+        if (error) {
+          alert('Erreur: ' + error.message);
+        } else {
+          onClose();
+        }
+      };
+
+      const handleFileUpload = async (file) => {
+        if (!file) return;
+        setUploading(true);
+
+        const sb = initSupabase();
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { data, error } = await sb.storage.from('members-photos').upload(filePath, file);
+
+        if (error) {
+          alert('Erreur upload: ' + error.message);
+          setUploading(false);
+          return;
+        }
+
+        const { data: { publicUrl } } = sb.storage.from('members-photos').getPublicUrl(filePath);
+        setFormData(prev => ({ ...prev, photo: publicUrl }));
+        setUploading(false);
+      };
+
+      const handleDrop = (e) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) handleFileUpload(file);
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+          <div className="bg-white dark:bg-slate-900 rounded-lg max-w-xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-200 dark:border-slate-800">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                {item ? 'Modifier le membre' : 'Nouveau membre'}
+              </h3>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Nom *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={e => setFormData({...formData, name: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Rôle *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.role}
+                  onChange={e => setFormData({...formData, role: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Catégorie *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="ex: leadership, diacres, ministeres..."
+                  value={formData.category}
+                  onChange={e => setFormData({...formData, category: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Photo</label>
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={e => e.preventDefault()}
+                  className={cls(
+                    "border-2 border-dashed rounded-lg p-8 text-center transition",
+                    uploading ? "uploading" : "",
+                    "border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500"
+                  )}
+                >
+                  {formData.photo ? (
+                    <div>
+                      <img src={formData.photo} alt="Preview" className="w-32 h-32 object-cover rounded-full mx-auto mb-2" />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        Remplacer
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="w-20 h-20 bg-slate-200 dark:bg-slate-800 rounded-full mx-auto mb-3 flex items-center justify-center text-slate-400 p-4">
+                        <UserIcon />
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+                        Glissez une photo ici ou
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+                      >
+                        Parcourir
+                      </button>
+                    </div>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => handleFileUpload(e.target.files[0])}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-6 py-2 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-900 dark:text-white"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploading}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {uploading ? 'Enregistrement...' : 'Enregistrer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+// ============================================
+    // MEDIAS SECTION
+    // ============================================
+    function MediasSection() {
+      const { medias } = useAdmin();
+      const [showModal, setShowModal] = useState(false);
+      const [editingItem, setEditingItem] = useState(null);
+      const [selectedMedia, setSelectedMedia] = useState(null);
+      const [typeFilter, setTypeFilter] = useState('Tous');
+
+      const filtered = useMemo(() => {
+        if (typeFilter === 'Tous') return medias;
+        return medias.filter(m => (m.type || 'image') === typeFilter);
+      }, [medias, typeFilter]);
+
+      const stats = useMemo(() => {
+        const images = medias.filter(m => !m.type || m.type === 'image').length;
+        const videos = medias.filter(m => m.type === 'video').length;
+        return { images, videos };
+      }, [medias]);
+
+      const handleDelete = async (id) => {
+        if (!confirm('Supprimer ce média ?')) return;
+        const sb = initSupabase();
+        const { error } = await sb.from('photos').delete().eq('id', id);
+        if (error) alert('Erreur: ' + error.message);
+      };
+
+      return (
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                Galerie Médias
+              </h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                {stats.images} image{stats.images > 1 ? 's' : ''} • {stats.videos} vidéo{stats.videos > 1 ? 's' : ''}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex gap-2">
+                {['Tous', 'image', 'video'].map(type => (
+                  <button
+                    key={type}
+                    onClick={() => setTypeFilter(type)}
+                    className={cls(
+                      "px-4 py-2 rounded-lg text-sm font-medium transition",
+                      typeFilter === type
+                        ? "bg-blue-600 text-white"
+                        : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    )}
+                  >
+                    {type === 'Tous' ? 'Tous' : type === 'image' ? 'Images' : 'Vidéos'}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => { setEditingItem(null); setShowModal(true); }}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+              >
+                + Ajouter
+              </button>
+            </div>
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
+              <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full mx-auto mb-4 flex items-center justify-center">
+                <CameraIcon />
+              </div>
+              <p className="text-slate-600 dark:text-slate-400">Aucun média pour le moment</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {filtered.map(media => {
+                const mediaType = media.type || 'image';
+                return (
+                  <div key={media.id} className="group relative bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden hover:shadow-lg transition">
+                    <div 
+                      className="aspect-video overflow-hidden bg-slate-200 dark:bg-slate-800 cursor-pointer relative"
+                      onClick={() => setSelectedMedia(media)}
+                    >
+                      {mediaType === 'video' ? (
+                        <div className="relative w-full h-full">
+                          <video className="w-full h-full object-cover" preload="metadata">
+                            <source src={media.url} type="video/mp4" />
+                          </video>
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/30 transition">
+                            <svg className="w-16 h-16 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 5v14l11-7z"/>
+                            </svg>
+                          </div>
+                        </div>
+                      ) : (
+                        <img 
+                          src={media.url} 
+                          alt={media.caption} 
+                          className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                        />
+                      )}
+                      
+                      <span className={cls(
+                        "absolute top-2 right-2 px-2 py-1 rounded text-xs font-medium backdrop-blur-sm",
+                        mediaType === 'video' 
+                          ? "bg-purple-500/90 text-white"
+                          : "bg-blue-500/90 text-white"
+                      )}>
+                        {mediaType === 'video' ? '🎥 Vidéo' : '🖼️ Image'}
+                      </span>
+                    </div>
+                    <div className="p-3">
+                      <p className="text-sm text-slate-900 dark:text-white mb-2 line-clamp-2">
+                        {media.caption || 'Sans titre'}
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => { setEditingItem(media); setShowModal(true); }}
+                          className="flex-1 px-2 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-700"
+                        >
+                          Éditer
+                        </button>
+                        <button
+                          onClick={() => handleDelete(media.id)}
+                          className="px-2 py-1 text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-900/50"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {selectedMedia && (
+            <div 
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4" 
+              onClick={() => setSelectedMedia(null)}
+            >
+              <button
+                onClick={() => setSelectedMedia(null)}
+                className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition text-white"
+                aria-label="Fermer"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+
+              <div className="max-w-6xl w-full" onClick={e => e.stopPropagation()}>
+                {(selectedMedia.type || 'image') === 'video' ? (
+                  <video 
+                    controls 
+                    autoPlay 
+                    className="w-full max-h-[80vh] rounded-lg shadow-2xl"
+                  >
+                    <source src={selectedMedia.url} type="video/mp4" />
+                    Votre navigateur ne supporte pas la lecture de vidéos.
+                  </video>
+                ) : (
+                  <img 
+                    src={selectedMedia.url} 
+                    alt={selectedMedia.caption} 
+                    className="w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
+                  />
+                )}
+                <div className="mt-6 text-center">
+                  <p className="text-white text-lg font-medium mb-4">
+                    {selectedMedia.caption || 'Sans titre'}
+                  </p>
+                  <button
+                    onClick={() => setSelectedMedia(null)}
+                    className="px-8 py-3 bg-white text-slate-900 rounded-lg hover:bg-slate-100 transition font-medium shadow-lg"
+                  >
+                    Fermer
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showModal && <MediaModal item={editingItem} onClose={() => setShowModal(false)} />}
+        </div>
+      );
+    }
+
+    function MediaModal({ item, onClose }) {
+      const [formData, setFormData] = useState({
+        caption: item?.caption || '',
+        url: item?.url || '',
+        type: item?.type || 'image',
+        thumbnail: item?.thumbnail || '',
+        created_at: item?.created_at || new Date().toISOString(),
+      });
+      const [uploading, setUploading] = useState(false);
+      const [uploadProgress, setUploadProgress] = useState(0);
+      const fileInputRef = useRef(null);
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        
+        if (!formData.url) {
+          alert('Veuillez uploader un fichier');
+          return;
+        }
+
+        setUploading(true);
+        
+        try {
+          const sb = initSupabase();
+          const data = { 
+            caption: formData.caption,
+            url: formData.url,
+            type: formData.type,
+            thumbnail: formData.thumbnail
+          };
+
+          let result;
+          if (item) {
+            result = await sb.from('photos').update(data).eq('id', item.id).select();
+          } else {
+            result = await sb.from('photos').insert([data]).select();
+          }
+
+          if (result.error) {
+            throw result.error;
+          }
+
+          onClose();
+        } catch (error) {
+          console.error('Erreur lors de l\'enregistrement:', error);
+          alert('Erreur: ' + error.message);
+        } finally {
+          setUploading(false);
+        }
+      };
+
+      const handleFileUpload = async (file) => {
+        if (!file) return;
+        
+        const isImage = file.type.startsWith('image/');
+        const isVideo = file.type.startsWith('video/');
+        
+        if (!isImage && !isVideo) {
+          alert('Veuillez sélectionner une image ou une vidéo');
+          return;
+        }
+
+        const maxSize = 100 * 1024 * 1024;
+        if (file.size > maxSize) {
+          alert('Le fichier est trop volumineux (max 100MB)');
+          return;
+        }
+
+        setUploading(true);
+        setUploadProgress(0);
+
+        try {
+          const sb = initSupabase();
+          const fileExt = file.name.split('.').pop().toLowerCase();
+          const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+          const bucketName = isVideo ? 'gallery-videos' : 'gallery-photos';
+
+          const { data, error } = await sb.storage
+            .from(bucketName)
+            .upload(fileName, file, {
+              cacheControl: '3600',
+              upsert: false
+            });
+
+          if (error) throw error;
+
+          const { data: { publicUrl } } = sb.storage.from(bucketName).getPublicUrl(fileName);
+          
+          setFormData(prev => ({ 
+            ...prev, 
+            url: publicUrl, 
+            type: isVideo ? 'video' : 'image' 
+          }));
+          
+          setUploadProgress(100);
+        } catch (error) {
+          console.error('Erreur upload:', error);
+          alert('Erreur lors de l\'upload: ' + error.message);
+        } finally {
+          setUploading(false);
+          setTimeout(() => setUploadProgress(0), 1000);
+        }
+      };
+
+      const handleDrop = (e) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files[0];
+        if (file) handleFileUpload(file);
+      };
+
+      const handleDragOver = (e) => {
+        e.preventDefault();
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+          <div className="bg-white dark:bg-slate-900 rounded-lg max-w-xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-200 dark:border-slate-800">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                {item ? 'Modifier le média' : 'Nouveau média'}
+              </h3>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">
+                  Légende *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.caption}
+                  onChange={e => setFormData({...formData, caption: e.target.value})}
+                  placeholder="ex: Culte de dimanche - Janvier 2025"
+                  className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">
+                  Fichier (Image ou Vidéo) *
+                </label>
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  className={cls(
+                    "border-2 border-dashed rounded-lg p-8 text-center transition",
+                    uploading ? "opacity-60 pointer-events-none" : "",
+                    "border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500"
+                  )}
+                >
+                  {formData.url ? (
+                    <div>
+                      {formData.type === 'video' ? (
+                        <video controls className="w-full max-h-48 rounded mb-3 bg-black">
+                          <source src={formData.url} type="video/mp4" />
+                        </video>
+                      ) : (
+                        <img 
+                          src={formData.url} 
+                          alt="Preview" 
+                          className="w-full max-h-48 object-contain rounded mb-3"
+                        />
+                      )}
+                      <p className="text-sm text-green-600 dark:text-green-400 mb-2">
+                        ✓ {formData.type === 'video' ? 'Vidéo' : 'Image'} uploadée
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+                      >
+                        Remplacer
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="w-20 h-20 bg-slate-200 dark:bg-slate-800 rounded-lg mx-auto mb-3 flex items-center justify-center text-slate-400 p-4">
+                        <CameraIcon />
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+                        Glissez une image ou vidéo ici ou
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {uploading ? 'Upload en cours...' : 'Parcourir'}
+                      </button>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">
+                        Images : JPG, PNG, GIF (max 100MB)<br />
+                        Vidéos : MP4, WebM, MOV (max 100MB)
+                      </p>
+                    </div>
+                  )}
+                  
+                  {uploading && uploadProgress > 0 && (
+                    <div className="mt-4">
+                      <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                        <div 
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-2">
+                        Upload: {uploadProgress}%
+                      </p>
+                    </div>
+                  )}
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,video/*"
+                    className="hidden"
+                    onChange={e => handleFileUpload(e.target.files[0])}
+                    disabled={uploading}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={uploading}
+                  className="px-6 py-2 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-900 dark:text-white disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploading || !formData.url}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {uploading ? 'Enregistrement...' : 'Enregistrer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // ============================================
+    // MESSAGES SECTION
+    // ============================================
+    function MessagesSection() {
+      const { messages } = useAdmin();
+      const [selectedMessage, setSelectedMessage] = useState(null);
+      const [statusFilter, setStatusFilter] = useState('Tous');
+
+      const filtered = useMemo(() => {
+        if (statusFilter === 'Tous') return messages;
+        return messages.filter(m => m.read === (statusFilter === 'Lus'));
+      }, [messages, statusFilter]);
+
+      const handleMarkAsRead = async (id, read) => {
+        const sb = initSupabase();
+        const { error } = await sb.from('contact_messages').update({ read }).eq('id', id);
+        if (error) alert('Erreur: ' + error.message);
+      };
+
+      const handleDelete = async (id) => {
+        if (!confirm('Supprimer ce message ?')) return;
+        const sb = initSupabase();
+        const { error } = await sb.from('contact_messages').delete().eq('id', id);
+        if (error) alert('Erreur: ' + error.message);
+      };
+
+      const unreadCount = messages.filter(m => !m.read).length;
+
+      return (
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                Messages de contact
+              </h2>
+              {unreadCount > 0 && (
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                  {unreadCount} message{unreadCount > 1 ? 's' : ''} non lu{unreadCount > 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              {['Tous', 'Non lus', 'Lus'].map(status => (
+                <button
+                  key={status}
+                  onClick={() => setStatusFilter(status)}
+                  className={cls(
+                    "px-4 py-2 rounded-lg text-sm font-medium transition",
+                    statusFilter === status
+                      ? "bg-blue-600 text-white"
+                      : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  )}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {filtered.map(message => (
+              <div 
+                key={message.id} 
+                className={cls(
+                  "bg-white dark:bg-slate-900 rounded-lg border p-5 cursor-pointer hover:shadow-lg transition",
+                  message.read 
+                    ? "border-slate-200 dark:border-slate-800" 
+                    : "border-blue-500 dark:border-blue-600 bg-blue-50/50 dark:bg-blue-900/10"
+                )}
+                onClick={() => {
+                  setSelectedMessage(message);
+                  if (!message.read) handleMarkAsRead(message.id, true);
+                }}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      {!message.read && (
+                        <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
+                      )}
+                      <h3 className="font-bold text-slate-900 dark:text-white">{message.name}</h3>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">{formatDateTime(message.created_at)}</span>
+                    </div>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">{message.email}</p>
+                    {message.subject && (
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                        Objet: {message.subject}
+                      </p>
+                    )}
+                    <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">{message.message}</p>
+                    {message.newsletter && (
+                      <span className="inline-block mt-2 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded">
+                        Newsletter ✓
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 ml-4">
+                    {!message.read && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleMarkAsRead(message.id, true); }}
+                        className="px-3 py-1.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50"
+                      >
+                        Marquer lu
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(message.id); }}
+                      className="px-3 py-1.5 text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-900/50"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {selectedMessage && (
+            <div 
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" 
+              onClick={() => setSelectedMessage(null)}
+            >
+              <div className="bg-white dark:bg-slate-900 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                <div className="p-6 border-b border-slate-200 dark:border-slate-800">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">{selectedMessage.name}</h3>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">{selectedMessage.email}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Reçu le {formatDateTime(selectedMessage.created_at)}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setSelectedMessage(null)}
+                      className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-4">
+                  {selectedMessage.subject && (
+                    <div>
+                      <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Objet</h4>
+                      <p className="text-slate-900 dark:text-white">{selectedMessage.subject}</p>
+                    </div>
+                  )}
+
+                  <div>
+                    <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Message</h4>
+                    <p className="text-slate-900 dark:text-white whitespace-pre-wrap">{selectedMessage.message}</p>
+                  </div>
+
+                  {selectedMessage.newsletter && (
+                    <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                      <p className="text-sm text-green-800 dark:text-green-300">
+                        ✓ Cette personne souhaite recevoir les actualités de l'église
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+                    <a
+                      href={`mailto:${selectedMessage.email}`}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-center text-sm font-medium"
+                    >
+                      Répondre par email
+                    </a>
+                    {!selectedMessage.read && (
+                      <button
+                        onClick={() => handleMarkAsRead(selectedMessage.id, true)}
+                        className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition text-sm"
+                      >
+                        Marquer comme lu
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ============================================
+    // MINISTRIES SECTION
+    // ============================================
+    function MinistriesSection() {
+      const { ministries } = useAdmin();
+      const [showModal, setShowModal] = useState(false);
+      const [editingItem, setEditingItem] = useState(null);
+
+      const handleDelete = async (id) => {
+        if (!confirm('Supprimer ce ministère ?')) return;
+        const sb = initSupabase();
+        const { error } = await sb.from('ministries').delete().eq('id', id);
+        if (error) alert('Erreur: ' + error.message);
+      };
+
+      const handleToggleActive = async (id, isActive) => {
+        const sb = initSupabase();
+        const { error } = await sb.from('ministries').update({ is_active: !isActive }).eq('id', id);
+        if (error) alert('Erreur: ' + error.message);
+      };
+
+      return (
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+              Ministères ({ministries.length})
+            </h2>
+            <button
+              onClick={() => { setEditingItem(null); setShowModal(true); }}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+            >
+              + Ajouter
+            </button>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {ministries.map(ministry => {
+              const IconComponent = MINISTRY_ICONS[ministry.icon] || UsersIcon;
+              return (
+                <div key={ministry.id} className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden hover:shadow-lg transition">
+                  {ministry.cover_image && (
+                    <div className="aspect-video overflow-hidden bg-slate-200 dark:bg-slate-800">
+                      <img src={ministry.cover_image} alt={ministry.name} className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <div className="p-5">
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
+                        <IconComponent />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-bold text-slate-900 dark:text-white">{ministry.name}</h3>
+                          {!ministry.is_active && (
+                            <span className="px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs rounded">
+                              Masqué
+                            </span>
+                          )}
+                        </div>
+                        {ministry.tagline && (
+                          <p className="text-sm text-slate-600 dark:text-slate-400">{ministry.tagline}</p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {ministry.leader && (
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
+                        <span className="font-medium">Responsable:</span> {ministry.leader}
+                      </p>
+                    )}
+
+                    {ministry.description && (
+                      <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mb-3">
+                        {ministry.description}
+                      </p>
+                    )}
+
+                    <div className="flex items-center gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+                      <button
+                        onClick={() => { setEditingItem(ministry); setShowModal(true); }}
+                        className="flex-1 px-3 py-1.5 text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-700"
+                      >
+                        Éditer
+                      </button>
+                      <button
+                        onClick={() => handleToggleActive(ministry.id, ministry.is_active)}
+                        className="px-3 py-1.5 text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
+                      >
+                        {ministry.is_active ? 'Masquer' : 'Afficher'}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(ministry.id)}
+                        className="px-3 py-1.5 text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-900/50"
+                      >
+                        Supprimer
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {showModal && <MinistryModal item={editingItem} onClose={() => setShowModal(false)} />}
+        </div>
+      );
+    }
+
+    function MinistryModal({ item, onClose }) {
+      const [formData, setFormData] = useState({
+        name: item?.name || '',
+        tagline: item?.tagline || '',
+        description: item?.description || '',
+        leader: item?.leader || '',
+        icon: item?.icon || 'users',
+        cover_image: item?.cover_image || '',
+        is_active: item?.is_active ?? true,
+        display_order: item?.display_order ?? 0,
+      });
+      const [uploading, setUploading] = useState(false);
+      const fileInputRef = useRef(null);
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setUploading(true);
+        
+        const sb = initSupabase();
+        const data = { ...formData, display_order: parseInt(formData.display_order) };
+
+        let error;
+        if (item) {
+          ({ error } = await sb.from('ministries').update(data).eq('id', item.id));
+        } else {
+          ({ error } = await sb.from('ministries').insert([data]));
+        }
+
+        setUploading(false);
+        if (error) {
+          alert('Erreur: ' + error.message);
+        } else {
+          onClose();
+        }
+      };
+
+      const handleFileUpload = async (file) => {
+        if (!file) return;
+        setUploading(true);
+
+        const sb = initSupabase();
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { data, error } = await sb.storage.from('ministries-covers').upload(filePath, file);
+
+        if (error) {
+          alert('Erreur upload: ' + error.message);
+          setUploading(false);
+          return;
+        }
+
+        const { data: { publicUrl } } = sb.storage.from('ministries-covers').getPublicUrl(filePath);
+        setFormData(prev => ({ ...prev, cover_image: publicUrl }));
+        setUploading(false);
+      };
+
+      const handleDrop = (e) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) handleFileUpload(file);
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+          <div className="bg-white dark:bg-slate-900 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-200 dark:border-slate-800">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                {item ? 'Modifier le ministère' : 'Nouveau ministère'}
+              </h3>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Nom *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={e => setFormData({...formData, name: e.target.value})}
+                  placeholder="ex: Louange & Adoration"
+                  className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Slogan</label>
+                <input
+                  type="text"
+                  value={formData.tagline}
+                  onChange={e => setFormData({...formData, tagline: e.target.value})}
+                  placeholder="ex: Célébrer Dieu par la musique"
+                  className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Description</label>
+                <textarea
+                  rows="4"
+                  value={formData.description}
+                  onChange={e => setFormData({...formData, description: e.target.value})}
+                  placeholder="Décrivez la mission et les activités du ministère..."
+                  className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Responsable</label>
+                  <input
+                    type="text"
+                    value={formData.leader}
+                    onChange={e => setFormData({...formData, leader: e.target.value})}
+                    placeholder="ex: Jean Dupont"
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Icône</label>
+                  <select
+                    value={formData.icon}
+                    onChange={e => setFormData({...formData, icon: e.target.value})}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  >
+                    <option value="musical-note">🎵 Musical Note</option>
+                    <option value="users">👥 Users</option>
+                    <option value="microphone">🎤 Microphone</option>
+                    <option value="fire">🔥 Fire</option>
+                    <option value="hand-raised">✋ Hand Raised</option>
+                    <option value="globe-alt">🌍 Globe</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Ordre d'affichage</label>
+                <input
+                  type="number"
+                  value={formData.display_order}
+                  onChange={e => setFormData({...formData, display_order: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Image de couverture</label>
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={e => e.preventDefault()}
+                  className={cls(
+                    "border-2 border-dashed rounded-lg p-8 text-center transition",
+                    uploading ? "uploading" : "",
+                    "border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500"
+                  )}
+                >
+                  {formData.cover_image ? (
+                    <div>
+                      <img src={formData.cover_image} alt="Preview" className="w-full h-40 object-cover rounded mb-2" />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        Remplacer
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+                        Glissez une image ici ou
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+                      >
+                        Parcourir
+                      </button>
+                    </div>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => handleFileUpload(e.target.files[0])}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_active}
+                    onChange={e => setFormData({...formData, is_active: e.target.checked})}
+                    className="w-5 h-5 rounded border-slate-300 dark:border-slate-700"
+                  />
+                  <span className="text-sm font-medium text-slate-900 dark:text-white">
+                    Actif (visible sur le site)
+                  </span>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-6 py-2 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-900 dark:text-white"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploading}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {uploading ? 'Enregistrement...' : 'Enregistrer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // ============================================
+    // RENDER APP
+    // ============================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<AdminApp />);
+  </script>
+</body>
+</html>
