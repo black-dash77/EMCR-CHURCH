@@ -17,7 +17,9 @@
       "Bash(eas init:*)",
       "Bash(eas project:init:*)",
       "Bash(yes:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm ls:*)"
     ]
   },
   "enabledMcpjsonServers": [
