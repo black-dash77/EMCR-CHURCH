@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Music,
   Info,
+  Church,
 } from 'lucide-react-native';
 import { colors, typography, spacing, borderRadius } from '@/theme';
 
@@ -42,6 +43,12 @@ export default function MoreScreen() {
     {
       title: 'Contenu',
       items: [
+        {
+          icon: <Church size={22} color={colors.primary[500]} />,
+          label: 'Notre Église',
+          description: 'Découvrez notre communauté',
+          route: '/church-info',
+        },
         {
           icon: <Users size={22} color={colors.primary[500]} />,
           label: 'Membres',

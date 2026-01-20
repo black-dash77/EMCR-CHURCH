@@ -2,7 +2,7 @@ export { sermonsApi } from './sermons';
 export { eventsApi } from './events';
 
 import { supabase } from '../supabase';
-import type { Announcement, Member, Photo, Ministry, ContactMessage } from '@/types';
+import type { Announcement, Member, Photo, Ministry, ContactMessage, ChurchInfo } from '@/types';
 
 export const announcementsApi = {
   async getAll(): Promise<Announcement[]> {
@@ -129,5 +129,33 @@ export const contactApi = {
     ]);
 
     if (error) throw error;
+  },
+};
+
+export const churchInfoApi = {
+  async get(): Promise<ChurchInfo | null> {
+    const { data, error } = await supabase
+      .from('church_info')
+      .select('*')
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null;
+      }
+      throw error;
+    }
+    return data;
+  },
+
+  subscribeToChanges(callback: (payload: any) => void) {
+    return supabase
+      .channel('church-info-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'church_info' },
+        callback
+      )
+      .subscribe();
   },
 };

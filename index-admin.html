@@ -127,6 +127,12 @@
       </svg>
     );
 
+    const ChurchIcon = () => (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+      </svg>
+    );
+
     const AlertIcon = () => (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -218,6 +224,7 @@
       const [medias, setMedias] = useState([]);
       const [messages, setMessages] = useState([]);
       const [ministries, setMinistries] = useState([]);
+      const [churchInfo, setChurchInfo] = useState(null);
 
       useEffect(() => {
         document.documentElement.classList.toggle('dark', darkMode);
@@ -259,6 +266,9 @@
 
             const { data: ministriesData } = await sb.from('ministries').select('*').order('display_order', { ascending: true });
             if (ministriesData) setMinistries(ministriesData);
+
+            const { data: churchInfoData } = await sb.from('church_info').select('*').single();
+            if (churchInfoData) setChurchInfo(churchInfoData);
 
             sermonsChannel = sb.channel('sermons-admin').on('postgres_changes', { event: '*', schema: 'public', table: 'sermons' }, (payload) => {
               if (payload.eventType === 'INSERT') setSermons(prev => [payload.new, ...prev]);
@@ -306,6 +316,12 @@
               }
             }).subscribe();
 
+            sb.channel('church-info-admin').on('postgres_changes', { event: '*', schema: 'public', table: 'church_info' }, (payload) => {
+              if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+                setChurchInfo(payload.new);
+              }
+            }).subscribe();
+
             setLoading(false);
           } catch (error) {
             console.error('Error loading data:', error);
@@ -335,6 +351,7 @@
         medias, setMedias,
         messages, setMessages,
         ministries, setMinistries,
+        churchInfo, setChurchInfo,
         loading
       };
 
@@ -354,6 +371,7 @@
                   </div>
                 ) : (
                   <>
+                    {activeSection === 'church-info' && <ChurchInfoSection />}
                     {activeSection === 'sermons' && <SermonsSection />}
                     {activeSection === 'events' && <EventsSection />}
                     {activeSection === 'announcements' && <AnnouncementsSection />}
@@ -374,9 +392,10 @@
     // SIDEBAR COMPONENT
     // ============================================
     function Sidebar({ activeSection, setActiveSection }) {
-      const { sermons, events, announcements, members, medias, messages, ministries } = useAdmin();
+      const { sermons, events, announcements, members, medias, messages, ministries, churchInfo } = useAdmin();
 
       const sections = [
+        { id: 'church-info', icon: <ChurchIcon />, label: 'Notre Église', count: churchInfo ? 1 : 0 },
         { id: 'sermons', icon: <MicrophoneIcon />, label: 'Prédications', count: sermons.length },
         { id: 'events', icon: <CalendarIcon />, label: 'Événements', count: events.length },
         { id: 'announcements', icon: <MegaphoneIcon />, label: 'Annonces', count: announcements.length },
@@ -455,6 +474,558 @@
             </button>
           </div>
         </header>
+      );
+    }
+
+    // ============================================
+    // CHURCH INFO SECTION
+    // ============================================
+    function ChurchInfoSection() {
+      const { churchInfo, setChurchInfo } = useAdmin();
+      const [editing, setEditing] = useState(false);
+      const [formData, setFormData] = useState({
+        name: '',
+        slogan: '',
+        description: '',
+        mission: '',
+        vision: '',
+        values: '',
+        history: '',
+        pastor_name: '',
+        pastor_photo: '',
+        pastor_message: '',
+        address: '',
+        phone: '',
+        email: '',
+        website: '',
+        facebook: '',
+        instagram: '',
+        youtube: '',
+        service_times: '',
+        logo_url: '',
+        cover_image: '',
+      });
+      const [uploading, setUploading] = useState(false);
+      const logoInputRef = useRef(null);
+      const coverInputRef = useRef(null);
+      const pastorInputRef = useRef(null);
+
+      useEffect(() => {
+        if (churchInfo) {
+          setFormData({
+            name: churchInfo.name || '',
+            slogan: churchInfo.slogan || '',
+            description: churchInfo.description || '',
+            mission: churchInfo.mission || '',
+            vision: churchInfo.vision || '',
+            values: Array.isArray(churchInfo.values) ? churchInfo.values.join('\n') : '',
+            history: churchInfo.history || '',
+            pastor_name: churchInfo.pastor_name || '',
+            pastor_photo: churchInfo.pastor_photo || '',
+            pastor_message: churchInfo.pastor_message || '',
+            address: churchInfo.address || '',
+            phone: churchInfo.phone || '',
+            email: churchInfo.email || '',
+            website: churchInfo.website || '',
+            facebook: churchInfo.facebook || '',
+            instagram: churchInfo.instagram || '',
+            youtube: churchInfo.youtube || '',
+            service_times: churchInfo.service_times || '',
+            logo_url: churchInfo.logo_url || '',
+            cover_image: churchInfo.cover_image || '',
+          });
+        }
+      }, [churchInfo]);
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setUploading(true);
+
+        const sb = initSupabase();
+        const valuesArray = formData.values.split('\n').map(v => v.trim()).filter(Boolean);
+        const data = {
+          ...formData,
+          values: valuesArray,
+          updated_at: new Date().toISOString()
+        };
+
+        let error;
+        if (churchInfo?.id) {
+          ({ error } = await sb.from('church_info').update(data).eq('id', churchInfo.id));
+        } else {
+          data.created_at = new Date().toISOString();
+          ({ error } = await sb.from('church_info').insert([data]));
+        }
+
+        setUploading(false);
+        if (error) {
+          alert('Erreur: ' + error.message);
+        } else {
+          setEditing(false);
+          const { data: newData } = await sb.from('church_info').select('*').single();
+          if (newData) setChurchInfo(newData);
+        }
+      };
+
+      const handleImageUpload = async (file, field) => {
+        if (!file) return;
+        setUploading(true);
+
+        const sb = initSupabase();
+        const fileExt = file.name.split('.').pop();
+        const fileName = `church_${field}_${Date.now()}.${fileExt}`;
+
+        const { data, error } = await sb.storage.from('church-images').upload(fileName, file);
+
+        if (error) {
+          alert('Erreur upload: ' + error.message);
+          setUploading(false);
+          return;
+        }
+
+        const { data: { publicUrl } } = sb.storage.from('church-images').getPublicUrl(fileName);
+        setFormData(prev => ({ ...prev, [field]: publicUrl }));
+        setUploading(false);
+      };
+
+      if (!editing) {
+        return (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                Informations de l'Église
+              </h2>
+              <button
+                onClick={() => setEditing(true)}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+              >
+                {churchInfo ? 'Modifier' : '+ Créer'}
+              </button>
+            </div>
+
+            {churchInfo ? (
+              <div className="space-y-6">
+                {/* Preview Card */}
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                  {churchInfo.cover_image && (
+                    <div className="h-48 overflow-hidden">
+                      <img src={churchInfo.cover_image} alt="Cover" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <div className="p-6">
+                    <div className="flex items-center gap-4 mb-4">
+                      {churchInfo.logo_url && (
+                        <img src={churchInfo.logo_url} alt="Logo" className="w-16 h-16 rounded-full object-cover" />
+                      )}
+                      <div>
+                        <h3 className="text-xl font-bold text-slate-900 dark:text-white">{churchInfo.name}</h3>
+                        {churchInfo.slogan && (
+                          <p className="text-slate-600 dark:text-slate-400 italic">{churchInfo.slogan}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {churchInfo.description && (
+                      <div className="mb-4">
+                        <h4 className="font-semibold text-slate-900 dark:text-white mb-2">Description</h4>
+                        <p className="text-slate-600 dark:text-slate-400">{churchInfo.description}</p>
+                      </div>
+                    )}
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {churchInfo.mission && (
+                        <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
+                          <h4 className="font-semibold text-slate-900 dark:text-white mb-2">Mission</h4>
+                          <p className="text-sm text-slate-600 dark:text-slate-400">{churchInfo.mission}</p>
+                        </div>
+                      )}
+                      {churchInfo.vision && (
+                        <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
+                          <h4 className="font-semibold text-slate-900 dark:text-white mb-2">Vision</h4>
+                          <p className="text-sm text-slate-600 dark:text-slate-400">{churchInfo.vision}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {churchInfo.values && churchInfo.values.length > 0 && (
+                      <div className="mt-4">
+                        <h4 className="font-semibold text-slate-900 dark:text-white mb-2">Valeurs</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {churchInfo.values.map((value, i) => (
+                            <span key={i} className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-sm">
+                              {value}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Contact Info Card */}
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+                  <h4 className="font-semibold text-slate-900 dark:text-white mb-4">Informations de contact</h4>
+                  <div className="grid md:grid-cols-2 gap-4 text-sm">
+                    {churchInfo.address && (
+                      <div><span className="font-medium">Adresse:</span> <span className="text-slate-600 dark:text-slate-400">{churchInfo.address}</span></div>
+                    )}
+                    {churchInfo.phone && (
+                      <div><span className="font-medium">Téléphone:</span> <span className="text-slate-600 dark:text-slate-400">{churchInfo.phone}</span></div>
+                    )}
+                    {churchInfo.email && (
+                      <div><span className="font-medium">Email:</span> <span className="text-slate-600 dark:text-slate-400">{churchInfo.email}</span></div>
+                    )}
+                    {churchInfo.website && (
+                      <div><span className="font-medium">Site web:</span> <span className="text-slate-600 dark:text-slate-400">{churchInfo.website}</span></div>
+                    )}
+                    {churchInfo.service_times && (
+                      <div className="md:col-span-2"><span className="font-medium">Horaires:</span> <span className="text-slate-600 dark:text-slate-400">{churchInfo.service_times}</span></div>
+                    )}
+                  </div>
+
+                  {(churchInfo.facebook || churchInfo.instagram || churchInfo.youtube) && (
+                    <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                      <h5 className="font-medium mb-2">Réseaux sociaux</h5>
+                      <div className="flex gap-3">
+                        {churchInfo.facebook && <a href={churchInfo.facebook} target="_blank" className="text-blue-600 hover:underline">Facebook</a>}
+                        {churchInfo.instagram && <a href={churchInfo.instagram} target="_blank" className="text-pink-600 hover:underline">Instagram</a>}
+                        {churchInfo.youtube && <a href={churchInfo.youtube} target="_blank" className="text-red-600 hover:underline">YouTube</a>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Pastor Card */}
+                {(churchInfo.pastor_name || churchInfo.pastor_message) && (
+                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+                    <h4 className="font-semibold text-slate-900 dark:text-white mb-4">Mot du Pasteur</h4>
+                    <div className="flex items-start gap-4">
+                      {churchInfo.pastor_photo && (
+                        <img src={churchInfo.pastor_photo} alt={churchInfo.pastor_name} className="w-20 h-20 rounded-full object-cover" />
+                      )}
+                      <div>
+                        {churchInfo.pastor_name && (
+                          <p className="font-semibold text-slate-900 dark:text-white">{churchInfo.pastor_name}</p>
+                        )}
+                        {churchInfo.pastor_message && (
+                          <p className="text-slate-600 dark:text-slate-400 italic mt-2">"{churchInfo.pastor_message}"</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center">
+                <ChurchIcon />
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mt-4">Aucune information configurée</h3>
+                <p className="text-slate-600 dark:text-slate-400 mt-2">Cliquez sur "Créer" pour ajouter les informations de votre église.</p>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      return (
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+              {churchInfo ? 'Modifier les informations' : 'Créer les informations'}
+            </h2>
+            <button
+              onClick={() => setEditing(false)}
+              className="px-6 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            >
+              Annuler
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 space-y-6">
+            {/* Identité */}
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Identité de l'Église</h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Nom de l'église *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={e => setFormData({...formData, name: e.target.value})}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Slogan</label>
+                  <input
+                    type="text"
+                    value={formData.slogan}
+                    onChange={e => setFormData({...formData, slogan: e.target.value})}
+                    placeholder="ex: Une église pour tous"
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Images */}
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Images</h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Logo</label>
+                  <div className="border-2 border-dashed rounded-lg p-4 text-center border-slate-300 dark:border-slate-700">
+                    {formData.logo_url ? (
+                      <div className="flex items-center gap-4">
+                        <img src={formData.logo_url} alt="Logo" className="w-16 h-16 rounded-full object-cover" />
+                        <div>
+                          <button type="button" onClick={() => logoInputRef.current?.click()} className="text-sm text-blue-600 hover:underline">Remplacer</button>
+                          <button type="button" onClick={() => setFormData({...formData, logo_url: ''})} className="text-sm text-red-600 hover:underline ml-2">Supprimer</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => logoInputRef.current?.click()} className="px-4 py-2 bg-slate-200 dark:bg-slate-800 rounded-lg text-sm">
+                        Choisir un logo
+                      </button>
+                    )}
+                    <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e.target.files[0], 'logo_url')} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Image de couverture</label>
+                  <div className="border-2 border-dashed rounded-lg p-4 text-center border-slate-300 dark:border-slate-700">
+                    {formData.cover_image ? (
+                      <div>
+                        <img src={formData.cover_image} alt="Cover" className="w-full h-24 object-cover rounded mb-2" />
+                        <button type="button" onClick={() => coverInputRef.current?.click()} className="text-sm text-blue-600 hover:underline">Remplacer</button>
+                        <button type="button" onClick={() => setFormData({...formData, cover_image: ''})} className="text-sm text-red-600 hover:underline ml-2">Supprimer</button>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => coverInputRef.current?.click()} className="px-4 py-2 bg-slate-200 dark:bg-slate-800 rounded-lg text-sm">
+                        Choisir une image
+                      </button>
+                    )}
+                    <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e.target.files[0], 'cover_image')} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Description</label>
+              <textarea
+                rows="4"
+                value={formData.description}
+                onChange={e => setFormData({...formData, description: e.target.value})}
+                placeholder="Présentez votre église..."
+                className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+              />
+            </div>
+
+            {/* Mission & Vision */}
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Mission & Vision</h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Mission</label>
+                  <textarea
+                    rows="3"
+                    value={formData.mission}
+                    onChange={e => setFormData({...formData, mission: e.target.value})}
+                    placeholder="Notre mission est de..."
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Vision</label>
+                  <textarea
+                    rows="3"
+                    value={formData.vision}
+                    onChange={e => setFormData({...formData, vision: e.target.value})}
+                    placeholder="Notre vision est de..."
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Valeurs */}
+            <div>
+              <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Valeurs (une par ligne)</label>
+              <textarea
+                rows="4"
+                value={formData.values}
+                onChange={e => setFormData({...formData, values: e.target.value})}
+                placeholder="Amour&#10;Foi&#10;Communauté&#10;Service"
+                className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+              />
+            </div>
+
+            {/* Histoire */}
+            <div>
+              <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Histoire</label>
+              <textarea
+                rows="4"
+                value={formData.history}
+                onChange={e => setFormData({...formData, history: e.target.value})}
+                placeholder="L'histoire de notre église..."
+                className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+              />
+            </div>
+
+            {/* Pasteur */}
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Mot du Pasteur</h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Nom du pasteur</label>
+                  <input
+                    type="text"
+                    value={formData.pastor_name}
+                    onChange={e => setFormData({...formData, pastor_name: e.target.value})}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Photo du pasteur</label>
+                  <div className="border-2 border-dashed rounded-lg p-2 text-center border-slate-300 dark:border-slate-700">
+                    {formData.pastor_photo ? (
+                      <div className="flex items-center gap-2">
+                        <img src={formData.pastor_photo} alt="Pastor" className="w-12 h-12 rounded-full object-cover" />
+                        <button type="button" onClick={() => pastorInputRef.current?.click()} className="text-xs text-blue-600 hover:underline">Remplacer</button>
+                        <button type="button" onClick={() => setFormData({...formData, pastor_photo: ''})} className="text-xs text-red-600 hover:underline">Supprimer</button>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => pastorInputRef.current?.click()} className="px-3 py-1 bg-slate-200 dark:bg-slate-800 rounded text-xs">
+                        Choisir
+                      </button>
+                    )}
+                    <input ref={pastorInputRef} type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e.target.files[0], 'pastor_photo')} />
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Message du pasteur</label>
+                <textarea
+                  rows="3"
+                  value={formData.pastor_message}
+                  onChange={e => setFormData({...formData, pastor_message: e.target.value})}
+                  placeholder="Un message de bienvenue..."
+                  className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            {/* Contact */}
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Informations de contact</h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Adresse</label>
+                  <input
+                    type="text"
+                    value={formData.address}
+                    onChange={e => setFormData({...formData, address: e.target.value})}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Téléphone</label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={e => setFormData({...formData, phone: e.target.value})}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Email</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={e => setFormData({...formData, email: e.target.value})}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Site web</label>
+                  <input
+                    type="url"
+                    value={formData.website}
+                    onChange={e => setFormData({...formData, website: e.target.value})}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Horaires des cultes</label>
+                <textarea
+                  rows="2"
+                  value={formData.service_times}
+                  onChange={e => setFormData({...formData, service_times: e.target.value})}
+                  placeholder="Dimanche 10h - Culte principal&#10;Mercredi 19h - Étude biblique"
+                  className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            {/* Réseaux sociaux */}
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Réseaux sociaux</h3>
+              <div className="grid md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Facebook</label>
+                  <input
+                    type="url"
+                    value={formData.facebook}
+                    onChange={e => setFormData({...formData, facebook: e.target.value})}
+                    placeholder="https://facebook.com/..."
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Instagram</label>
+                  <input
+                    type="url"
+                    value={formData.instagram}
+                    onChange={e => setFormData({...formData, instagram: e.target.value})}
+                    placeholder="https://instagram.com/..."
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">YouTube</label>
+                  <input
+                    type="url"
+                    value={formData.youtube}
+                    onChange={e => setFormData({...formData, youtube: e.target.value})}
+                    placeholder="https://youtube.com/..."
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Submit */}
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="px-6 py-2 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-900 dark:text-white"
+              >
+                Annuler
+              </button>
+              <button
+                type="submit"
+                disabled={uploading}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {uploading ? 'Enregistrement...' : 'Enregistrer'}
+              </button>
+            </div>
+          </form>
+        </div>
       );
     }
 
