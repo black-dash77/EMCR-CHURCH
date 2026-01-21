@@ -1,7 +1,8 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AVPlaybackStatus } from 'expo-av';
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+
 import { audioService } from '@/services/audioService';
 import type { Sermon, RepeatMode, PlaybackRate } from '@/types';
 
@@ -12,6 +13,9 @@ interface AudioState {
   isLoading: boolean;
   currentTime: number; // in seconds
   duration: number; // in seconds
+
+  // Player visibility (can be hidden while audio plays)
+  isPlayerHidden: boolean;
 
   // Settings
   playbackRate: PlaybackRate;
@@ -53,6 +57,8 @@ interface AudioState {
   updateSleepTimerRemaining: () => void;
   savePlaybackPosition: () => void;
   handlePlaybackStatusUpdate: (status: AVPlaybackStatus) => void;
+  hidePlayer: () => void;
+  showPlayer: () => void;
 }
 
 const shuffleArray = <T>(array: T[]): T[] => {
@@ -73,6 +79,7 @@ export const useAudioStore = create<AudioState>()(
       isLoading: false,
       currentTime: 0,
       duration: 0,
+      isPlayerHidden: false,
       playbackRate: 1,
       volume: 1,
       repeatMode: 'off',
@@ -87,7 +94,7 @@ export const useAudioStore = create<AudioState>()(
       playSermon: async (sermon, addToQueue = true) => {
         const { playbackPositions, playbackRate, volume, queue } = get();
 
-        set({ isLoading: true, currentSermon: sermon });
+        set({ isLoading: true, currentSermon: sermon, isPlayerHidden: false });
 
         // Setup status callback
         audioService.setStatusCallback(get().handlePlaybackStatusUpdate);
@@ -389,6 +396,14 @@ export const useAudioStore = create<AudioState>()(
 
         // Check sleep timer
         get().updateSleepTimerRemaining();
+      },
+
+      hidePlayer: () => {
+        set({ isPlayerHidden: true });
+      },
+
+      showPlayer: () => {
+        set({ isPlayerHidden: false });
       },
     }),
     {

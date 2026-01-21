@@ -1,3 +1,16 @@
+import * as Calendar from 'expo-calendar';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  ChevronLeft,
+  Calendar as CalendarIcon,
+  Clock,
+  MapPin,
+  Share2,
+  CalendarPlus,
+  Navigation,
+  ImageIcon,
+} from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   View,
@@ -11,24 +24,18 @@ import {
   Share,
   Linking,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as Calendar from 'expo-calendar';
-import {
-  ChevronLeft,
-  Calendar as CalendarIcon,
-  Clock,
-  MapPin,
-  Share2,
-  Plus,
-} from 'lucide-react-native';
-import { colors, typography, spacing, borderRadius } from '@/theme';
+import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { TransparentHeaderBackground, HEADER_HEIGHT } from '@/components/TransparentHeaderBackground';
 import { eventsApi } from '@/services/api';
+import { colors, typography, spacing, borderRadius } from '@/theme';
 import type { Event } from '@/types';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+const IMAGE_HEIGHT = height * 0.3;
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -36,6 +43,7 @@ export default function EventDetailScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const themeColors = isDark ? colors.dark : colors.light;
+  const insets = useSafeAreaInsets();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,7 +69,7 @@ export default function EventDetailScreen() {
     try {
       await Share.share({
         title: event.title,
-        message: `${event.title} - ${formatDate(event.date)} ${event.time ? `à ${event.time}` : ''}\n${event.location || ''}\n\nPlus d'infos sur l'app EMCR Church`,
+        message: `${event.title}\n\n📅 ${formatDate(event.date)}${event.time ? `\n🕐 ${event.time}` : ''}${event.location ? `\n📍 ${event.location}` : ''}\n\nPlus d'infos sur l'app EMCR Church`,
       });
     } catch (error) {
       console.error('Error sharing:', error);
@@ -84,7 +92,7 @@ export default function EventDetailScreen() {
       const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
       const defaultCalendar = calendars.find(
         (cal) => cal.allowsModifications && cal.source.name === 'Default'
-      ) || calendars[0];
+      ) || calendars.find(cal => cal.allowsModifications) || calendars[0];
 
       if (!defaultCalendar) {
         Alert.alert('Erreur', 'Aucun calendrier disponible.');
@@ -92,13 +100,27 @@ export default function EventDetailScreen() {
       }
 
       const startDate = new Date(event.date);
-      if (event.time) {
-        const [hours, minutes] = event.time.split(':').map(Number);
-        startDate.setHours(hours, minutes);
+
+      // Validate the date
+      if (isNaN(startDate.getTime())) {
+        Alert.alert('Erreur', 'La date de l\'événement est invalide.');
+        return;
       }
 
-      const endDate = new Date(startDate);
-      endDate.setHours(endDate.getHours() + 2);
+      if (event.time) {
+        const timeParts = event.time.split(':');
+        const hours = parseInt(timeParts[0], 10);
+        const minutes = parseInt(timeParts[1], 10);
+        if (!isNaN(hours) && !isNaN(minutes)) {
+          startDate.setHours(hours, minutes, 0, 0);
+        }
+      } else {
+        // Default to 9 AM if no time specified
+        startDate.setHours(9, 0, 0, 0);
+      }
+
+      const endDate = new Date(startDate.getTime());
+      endDate.setTime(endDate.getTime() + 2 * 60 * 60 * 1000); // Add 2 hours in milliseconds
 
       await Calendar.createEventAsync(defaultCalendar.id, {
         title: event.title,
@@ -131,144 +153,230 @@ export default function EventDetailScreen() {
     });
   };
 
-  if (loading || !event) {
+  const formatShortDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return {
+      day: date.getDate(),
+      month: date.toLocaleDateString('fr-FR', { month: 'short' }).toUpperCase(),
+      weekday: date.toLocaleDateString('fr-FR', { weekday: 'long' }),
+    };
+  };
+
+  if (loading) {
     return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: themeColors.background }]}
-      >
-        <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>
-            Chargement...
-          </Text>
-        </View>
-      </SafeAreaView>
+      <View style={[styles.container, styles.centered, { backgroundColor: themeColors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary[500]} />
+      </View>
     );
   }
 
+  if (!event) {
+    return (
+      <View style={[styles.container, styles.centered, { backgroundColor: themeColors.background }]}>
+        <Text style={[styles.errorText, { color: themeColors.textSecondary }]}>
+          Événement introuvable
+        </Text>
+        <Pressable
+          style={[styles.backButton, { backgroundColor: colors.primary[500], marginTop: spacing[4] }]}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.backButtonText}>Retour</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  const dateInfo = formatShortDate(event.date);
+
+  const headerTotalHeight = HEADER_HEIGHT + insets.top;
+
   return (
     <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header Image */}
-        <View style={styles.headerImage}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Spacer pour le header */}
+        <View style={{ height: headerTotalHeight + spacing[2] }} />
+        {/* Hero Image Section - en dessous du header */}
+        <View style={styles.heroSection}>
           {event.image ? (
-            <Image source={{ uri: event.image }} style={styles.coverImage} />
+            <Image source={{ uri: event.image }} style={styles.heroImage} resizeMode="cover" />
           ) : (
             <LinearGradient
-              colors={[colors.primary[400], colors.primary[700]]}
-              style={styles.coverImage}
-            />
+              colors={[colors.primary[400], colors.primary[600]]}
+              style={styles.heroImage}
+            >
+              <ImageIcon size={60} color="rgba(255,255,255,0.3)" />
+            </LinearGradient>
           )}
+
+          {/* Gradient overlay pour lisibilité */}
           <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.7)']}
-            style={styles.headerGradient}
+            colors={['transparent', 'rgba(0,0,0,0.3)']}
+            style={styles.heroGradient}
           />
 
-          {/* Back Button */}
-          <SafeAreaView style={styles.headerButtons} edges={['top']}>
-            <Pressable
-              style={styles.headerButton}
-              onPress={() => router.back()}
+          {/* Date Badge flottant */}
+          <Animated.View
+            entering={FadeInUp.delay(200).duration(400)}
+            style={styles.floatingDateBadge}
+          >
+            <LinearGradient
+              colors={[colors.primary[500], colors.primary[600]]}
+              style={styles.dateBadgeGradient}
             >
-              <ChevronLeft size={28} color="#FFFFFF" />
-            </Pressable>
-          </SafeAreaView>
+              <Text style={styles.dateBadgeDay}>{dateInfo.day}</Text>
+              <Text style={styles.dateBadgeMonth}>{dateInfo.month}</Text>
+            </LinearGradient>
+          </Animated.View>
         </View>
 
-        {/* Content */}
-        <View style={styles.content}>
+        {/* Content Card */}
+        <Animated.View
+          entering={FadeInDown.delay(100).duration(400)}
+          style={[styles.contentCard, { backgroundColor: themeColors.background }]}
+        >
           {/* Type Badge */}
-          <View style={[styles.typeBadge, { backgroundColor: colors.primary[500] }]}>
-            <Text style={styles.typeText}>{event.type}</Text>
-          </View>
+          {event.type && (
+            <View style={styles.typeBadgeContainer}>
+              <View style={[styles.typeBadge, { backgroundColor: colors.primary[50] }]}>
+                <Text style={[styles.typeText, { color: colors.primary[600] }]}>
+                  {event.type}
+                </Text>
+              </View>
+            </View>
+          )}
 
           {/* Title */}
           <Text style={[styles.title, { color: themeColors.text }]}>
             {event.title}
           </Text>
 
-          {/* Date & Time */}
-          <View style={[styles.infoCard, { backgroundColor: themeColors.card }]}>
-            <View style={styles.infoRow}>
-              <View style={[styles.iconCircle, { backgroundColor: colors.primary[100] }]}>
-                <CalendarIcon size={20} color={colors.primary[500]} />
+          {/* Info Pills */}
+          <View style={styles.infoPillsContainer}>
+            {/* Date & Time Pill */}
+            <View style={[styles.infoPill, { backgroundColor: themeColors.card }]}>
+              <View style={[styles.pillIcon, { backgroundColor: colors.primary[100] }]}>
+                <CalendarIcon size={18} color={colors.primary[500]} />
               </View>
-              <View style={styles.infoText}>
-                <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>
-                  Date
+              <View style={styles.pillContent}>
+                <Text style={[styles.pillLabel, { color: themeColors.textSecondary }]}>
+                  {dateInfo.weekday}
                 </Text>
-                <Text style={[styles.infoValue, { color: themeColors.text }]}>
-                  {formatDate(event.date)}
+                <Text style={[styles.pillValue, { color: themeColors.text }]}>
+                  {dateInfo.day} {dateInfo.month.toLowerCase()}
+                  {event.time && ` • ${event.time}`}
                 </Text>
               </View>
             </View>
 
-            {event.time && (
-              <View style={styles.infoRow}>
-                <View style={[styles.iconCircle, { backgroundColor: colors.primary[100] }]}>
-                  <Clock size={20} color={colors.primary[500]} />
-                </View>
-                <View style={styles.infoText}>
-                  <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>
-                    Heure
-                  </Text>
-                  <Text style={[styles.infoValue, { color: themeColors.text }]}>
-                    {event.time}
-                  </Text>
-                </View>
-              </View>
-            )}
-
+            {/* Location Pill */}
             {event.location && (
-              <Pressable style={styles.infoRow} onPress={handleOpenMaps}>
-                <View style={[styles.iconCircle, { backgroundColor: colors.primary[100] }]}>
-                  <MapPin size={20} color={colors.primary[500]} />
+              <Pressable
+                style={[styles.infoPill, { backgroundColor: themeColors.card }]}
+                onPress={handleOpenMaps}
+              >
+                <View style={[styles.pillIcon, { backgroundColor: colors.primary[100] }]}>
+                  <MapPin size={18} color={colors.primary[500]} />
                 </View>
-                <View style={styles.infoText}>
-                  <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>
+                <View style={styles.pillContent}>
+                  <Text style={[styles.pillLabel, { color: themeColors.textSecondary }]}>
                     Lieu
                   </Text>
-                  <Text style={[styles.infoValue, { color: colors.primary[500] }]}>
+                  <Text
+                    style={[styles.pillValue, { color: colors.primary[500] }]}
+                    numberOfLines={1}
+                  >
                     {event.location}
                   </Text>
                 </View>
+                <Navigation size={16} color={colors.primary[500]} />
               </Pressable>
             )}
           </View>
 
           {/* Action Buttons */}
-          <View style={styles.actions}>
+          <View style={styles.actionsContainer}>
             <Pressable
-              style={[styles.primaryButton, { backgroundColor: colors.primary[500] }]}
+              style={({ pressed }) => [
+                styles.primaryActionButton,
+                { backgroundColor: colors.primary[500], opacity: pressed ? 0.9 : 1 }
+              ]}
               onPress={handleAddToCalendar}
             >
-              <Plus size={20} color="#FFFFFF" />
-              <Text style={styles.primaryButtonText}>Ajouter au calendrier</Text>
+              <CalendarPlus size={20} color="#FFFFFF" />
+              <Text style={styles.primaryActionText}>Ajouter au calendrier</Text>
             </Pressable>
 
-            <Pressable
-              style={[styles.iconButton, { backgroundColor: themeColors.surface }]}
-              onPress={handleShare}
-            >
-              <Share2 size={22} color={themeColors.text} />
-            </Pressable>
+            {event.location && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.secondaryActionButton,
+                  {
+                    backgroundColor: themeColors.card,
+                    borderColor: themeColors.border,
+                    opacity: pressed ? 0.9 : 1
+                  }
+                ]}
+                onPress={handleOpenMaps}
+              >
+                <MapPin size={20} color={colors.primary[500]} />
+                <Text style={[styles.secondaryActionText, { color: themeColors.text }]}>
+                  Itinéraire
+                </Text>
+              </Pressable>
+            )}
           </View>
 
           {/* Description */}
           {event.description && (
             <View style={styles.descriptionSection}>
               <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-                À propos
+                À propos de l'événement
               </Text>
               <Text style={[styles.description, { color: themeColors.textSecondary }]}>
                 {event.description}
               </Text>
             </View>
           )}
-        </View>
-
-        {/* Bottom padding */}
-        <View style={{ height: 40 }} />
+        </Animated.View>
       </ScrollView>
+
+      {/* Header Transparent avec gradient de fondu */}
+      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+        <TransparentHeaderBackground height={headerTotalHeight + 40} />
+
+        {/* Contenu du header */}
+        <Animated.View entering={FadeIn.duration(300)} style={styles.headerContent}>
+          <View style={styles.headerRow}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.headerIconButton,
+                { backgroundColor: themeColors.card, opacity: pressed ? 0.8 : 1 }
+              ]}
+              onPress={() => router.back()}
+            >
+              <ChevronLeft size={24} color={themeColors.text} />
+            </Pressable>
+
+            <Text style={[styles.headerTitle, { color: themeColors.text }]} numberOfLines={1}>
+              Événement
+            </Text>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.headerIconButton,
+                { backgroundColor: themeColors.card, opacity: pressed ? 0.8 : 1 }
+              ]}
+              onPress={handleShare}
+            >
+              <Share2 size={22} color={themeColors.text} />
+            </Pressable>
+          </View>
+        </Animated.View>
+      </View>
     </View>
   );
 }
@@ -277,125 +385,207 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  loadingContainer: {
-    flex: 1,
+  centered: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: {
+  scrollContent: {
+    flexGrow: 1,
+  },
+  errorText: {
     ...typography.bodyMedium,
   },
-  headerImage: {
-    width: width,
-    height: width * 0.6,
-    position: 'relative',
+  backButton: {
+    paddingHorizontal: spacing[6],
+    paddingVertical: spacing[3],
+    borderRadius: borderRadius.lg,
   },
-  coverImage: {
-    width: '100%',
-    height: '100%',
+  backButtonText: {
+    ...typography.labelLarge,
+    color: '#FFFFFF',
   },
-  headerGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 100,
-  },
-  headerButtons: {
+  headerContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
+    zIndex: 10,
   },
-  headerButton: {
+  headerContent: {
+    paddingHorizontal: spacing[4],
+    paddingTop: spacing[2],
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitle: {
+    ...typography.titleMedium,
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: spacing[2],
+  },
+  headerIconButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: spacing[4],
-    marginTop: spacing[2],
   },
-  content: {
-    padding: spacing[4],
+  heroSection: {
+    height: IMAGE_HEIGHT,
+    position: 'relative',
+    borderRadius: borderRadius['2xl'],
+    marginHorizontal: spacing[4],
+    marginTop: spacing[2],
+    overflow: 'hidden',
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heroGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 80,
+  },
+  floatingDateBadge: {
+    position: 'absolute',
+    bottom: spacing[3],
+    left: spacing[3],
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  dateBadgeGradient: {
+    width: 64,
+    height: 64,
+    borderRadius: borderRadius.xl,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dateBadgeDay: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    lineHeight: 28,
+  },
+  dateBadgeMonth: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
+    letterSpacing: 0.5,
+  },
+  contentCard: {
+    flex: 1,
+    paddingTop: spacing[5],
+    paddingHorizontal: spacing[5],
+    paddingBottom: spacing[8],
+  },
+  typeBadgeContainer: {
+    marginBottom: spacing[3],
   },
   typeBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: spacing[3],
-    paddingVertical: spacing[1],
+    paddingVertical: spacing[1.5],
     borderRadius: borderRadius.full,
-    marginBottom: spacing[3],
   },
   typeText: {
     ...typography.labelSmall,
-    color: '#FFFFFF',
+    fontWeight: '600',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   title: {
     ...typography.headlineSmall,
-    marginBottom: spacing[4],
+    fontWeight: '700',
+    marginBottom: spacing[5],
+    lineHeight: 32,
   },
-  infoCard: {
-    padding: spacing[4],
-    borderRadius: borderRadius.xl,
-    gap: spacing[4],
-    marginBottom: spacing[4],
+  infoPillsContainer: {
+    gap: spacing[3],
+    marginBottom: spacing[5],
   },
-  infoRow: {
+  infoPill: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: spacing[3],
+    borderRadius: borderRadius.xl,
+    gap: spacing[3],
   },
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  pillIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing[3],
   },
-  infoText: {
+  pillContent: {
     flex: 1,
   },
-  infoLabel: {
+  pillLabel: {
     ...typography.labelSmall,
     marginBottom: 2,
   },
-  infoValue: {
+  pillValue: {
     ...typography.bodyMedium,
+    fontWeight: '500',
   },
-  actions: {
+  actionsContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: spacing[3],
     marginBottom: spacing[6],
   },
-  primaryButton: {
+  primaryActionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing[3],
-    borderRadius: borderRadius.lg,
+    paddingVertical: spacing[3.5],
+    borderRadius: borderRadius.xl,
     gap: spacing[2],
+    shadowColor: colors.primary[500],
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  primaryButtonText: {
+  primaryActionText: {
     ...typography.labelLarge,
     color: '#FFFFFF',
+    fontWeight: '600',
   },
-  iconButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
+  secondaryActionButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing[5],
+    paddingVertical: spacing[3.5],
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    gap: spacing[2],
+  },
+  secondaryActionText: {
+    ...typography.labelLarge,
+    fontWeight: '600',
   },
   descriptionSection: {
     marginTop: spacing[2],
   },
   sectionTitle: {
     ...typography.titleMedium,
-    marginBottom: spacing[2],
+    fontWeight: '600',
+    marginBottom: spacing[3],
   },
   description: {
     ...typography.bodyMedium,

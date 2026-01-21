@@ -1,3 +1,6 @@
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { ChevronLeft, Clock, Play, Trash2 } from 'lucide-react-native';
 import { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -9,14 +12,14 @@ import {
   Image,
   Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, Clock, Play, Trash2 } from 'lucide-react-native';
-import { colors, typography, spacing, borderRadius } from '@/theme';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { TransparentHeaderBackground, HEADER_HEIGHT } from '@/components/TransparentHeaderBackground';
 import { sermonsApi } from '@/services/api';
-import { useUserStore } from '@/stores/useUserStore';
 import { useAudioStore } from '@/stores/useAudioStore';
+import { useUserStore } from '@/stores/useUserStore';
+import { colors, typography, spacing, borderRadius } from '@/theme';
 import type { Sermon } from '@/types';
 
 export default function HistoryScreen() {
@@ -24,6 +27,7 @@ export default function HistoryScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const themeColors = isDark ? colors.dark : colors.light;
+  const insets = useSafeAreaInsets();
 
   const [allSermons, setAllSermons] = useState<Sermon[]>([]);
   const { getHistorySermons, clearHistory } = useUserStore();
@@ -119,32 +123,19 @@ export default function HistoryScreen() {
     );
   };
 
-  return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: themeColors.background }]}
-      edges={['top']}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={28} color={themeColors.text} />
-        </Pressable>
-        <Text style={[styles.title, { color: themeColors.text }]}>Historique</Text>
-        {historySermons.length > 0 ? (
-          <Pressable onPress={handleClearHistory} style={styles.clearButton}>
-            <Trash2 size={20} color={colors.semantic.error} />
-          </Pressable>
-        ) : (
-          <View style={{ width: 44 }} />
-        )}
-      </View>
+  const headerTotalHeight = HEADER_HEIGHT + insets.top + 20;
 
+  const ListHeaderComponent = <View style={{ height: headerTotalHeight }} />;
+
+  return (
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
       <FlatList
         data={historySermons}
         renderItem={renderSermon}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        ListHeaderComponent={ListHeaderComponent}
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Clock size={48} color={themeColors.textTertiary} />
@@ -157,7 +148,31 @@ export default function HistoryScreen() {
           </View>
         }
       />
-    </SafeAreaView>
+
+      {/* Header Transparent avec gradient */}
+      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+        <TransparentHeaderBackground height={headerTotalHeight + 40} />
+
+        <View style={styles.headerContent}>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <ChevronLeft size={28} color={themeColors.text} />
+          </Pressable>
+
+          <Animated.View entering={FadeInDown.duration(500).springify()} style={styles.headerTitles}>
+            <Text style={[styles.title, { color: themeColors.text }]}>Historique</Text>
+            <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
+              {historySermons.length} écoute{historySermons.length > 1 ? 's' : ''}
+            </Text>
+          </Animated.View>
+
+          {historySermons.length > 0 && (
+            <Pressable onPress={handleClearHistory} style={styles.clearButton}>
+              <Trash2 size={20} color={colors.semantic.error} />
+            </Pressable>
+          )}
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -165,18 +180,32 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
+  headerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: spacing[2],
-    paddingVertical: spacing[2],
+  },
+  headerTitles: {
+    flex: 1,
+    marginLeft: spacing[2],
   },
   backButton: {
     padding: spacing[2],
   },
   title: {
-    ...typography.titleLarge,
+    ...typography.headlineMedium,
+    fontWeight: '700',
+  },
+  subtitle: {
+    ...typography.bodySmall,
+    marginTop: 2,
   },
   clearButton: {
     padding: spacing[2],

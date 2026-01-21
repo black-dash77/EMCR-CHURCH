@@ -1,3 +1,5 @@
+import { useRouter } from 'expo-router';
+import { ChevronLeft, Image as ImageIcon, Video, X } from 'lucide-react-native';
 import { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -11,11 +13,12 @@ import {
   Modal,
   FlatList,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, Image as ImageIcon, Video, X } from 'lucide-react-native';
-import { colors, typography, spacing, borderRadius } from '@/theme';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { TransparentHeaderBackground, HEADER_HEIGHT } from '@/components/TransparentHeaderBackground';
 import { photosApi } from '@/services/api';
+import { colors, typography, spacing, borderRadius } from '@/theme';
 import type { Photo } from '@/types';
 
 const { width } = Dimensions.get('window');
@@ -26,6 +29,7 @@ export default function MediaScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const themeColors = isDark ? colors.dark : colors.light;
+  const insets = useSafeAreaInsets();
 
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -70,19 +74,12 @@ export default function MediaScreen() {
     </Pressable>
   );
 
+  const headerTotalHeight = HEADER_HEIGHT + insets.top + 20;
+
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: themeColors.background }]}
-      edges={['top']}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={28} color={themeColors.text} />
-        </Pressable>
-        <Text style={[styles.title, { color: themeColors.text }]}>Médias</Text>
-        <View style={{ width: 44 }} />
-      </View>
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+      {/* Spacer pour le header */}
+      <View style={{ height: headerTotalHeight }} />
 
       {/* Filters */}
       <View style={styles.filters}>
@@ -198,7 +195,25 @@ export default function MediaScreen() {
           )}
         </View>
       </Modal>
-    </SafeAreaView>
+
+      {/* Header Transparent avec gradient */}
+      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+        <TransparentHeaderBackground height={headerTotalHeight + 40} />
+
+        <View style={styles.headerContent}>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <ChevronLeft size={28} color={themeColors.text} />
+          </Pressable>
+
+          <Animated.View entering={FadeInDown.duration(500).springify()} style={styles.headerTitles}>
+            <Text style={[styles.title, { color: themeColors.text }]}>Médias</Text>
+            <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
+              {photos.length} élément{photos.length > 1 ? 's' : ''}
+            </Text>
+          </Animated.View>
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -206,18 +221,32 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
+  headerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: spacing[2],
-    paddingVertical: spacing[2],
+  },
+  headerTitles: {
+    flex: 1,
+    marginLeft: spacing[2],
   },
   backButton: {
     padding: spacing[2],
   },
   title: {
-    ...typography.titleLarge,
+    ...typography.headlineMedium,
+    fontWeight: '700',
+  },
+  subtitle: {
+    ...typography.bodySmall,
+    marginTop: 2,
   },
   filters: {
     flexDirection: 'row',

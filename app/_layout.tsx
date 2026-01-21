@@ -1,23 +1,60 @@
-import { useEffect } from 'react';
+import { useFonts } from 'expo-font';
+import { Stack, useRouter } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { Stack } from 'expo-router';
-import { useColorScheme, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { useColorScheme, View, AppState, AppStateStatus } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { useFonts } from 'expo-font';
-import * as SplashScreen from 'expo-splash-screen';
+
+import { notificationService, getDeepLinkFromNotification } from '@/services/notificationService';
+import { useUserStore } from '@/stores/useUserStore';
 import { colors } from '@/theme';
-import { MiniPlayer } from '@/components/player';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const router = useRouter();
+  const { notificationsEnabled } = useUserStore();
+  const appState = useRef(AppState.currentState);
 
   const [fontsLoaded] = useFonts({
     // Add custom fonts here if needed
   });
+
+  // Initialize notifications
+  useEffect(() => {
+    if (!notificationsEnabled) return;
+
+    const initNotifications = async () => {
+      await notificationService.initialize();
+
+      // Listen for notification taps
+      notificationService.addNotificationResponseListener((response) => {
+        const deepLink = getDeepLinkFromNotification(response);
+        if (deepLink) {
+          router.push(deepLink as any);
+        }
+      });
+
+      // Clear badge when app becomes active
+      const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+        if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+          notificationService.clearBadge();
+        }
+        appState.current = nextAppState;
+      });
+
+      return () => {
+        subscription.remove();
+        notificationService.removeAllListeners();
+      };
+    };
+
+    initNotifications();
+  }, [notificationsEnabled]);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -108,6 +145,48 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
+              name="speakers"
+              options={{
+                presentation: 'card',
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="speaker/[id]"
+              options={{
+                presentation: 'card',
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="seminars"
+              options={{
+                presentation: 'card',
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="seminar/[id]"
+              options={{
+                presentation: 'card',
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="playlists/index"
+              options={{
+                presentation: 'card',
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="playlists/[id]"
+              options={{
+                presentation: 'card',
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
               name="player"
               options={{
                 presentation: 'fullScreenModal',
@@ -115,7 +194,6 @@ export default function RootLayout() {
               }}
             />
           </Stack>
-          <MiniPlayer />
         </View>
       </GestureHandlerRootView>
     </SafeAreaProvider>

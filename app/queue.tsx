@@ -1,3 +1,7 @@
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { ChevronLeft, GripVertical, Play, Trash2, ListMusic } from 'lucide-react-native';
 import {
   View,
   Text,
@@ -6,17 +10,14 @@ import {
   Pressable,
   Image,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import DraggableFlatList, {
   ScaleDecorator,
   RenderItemParams,
 } from 'react-native-draggable-flatlist';
-import { ChevronLeft, GripVertical, Play, Trash2, ListMusic } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
-import { colors, typography, spacing, borderRadius } from '@/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { useAudioStore } from '@/stores/useAudioStore';
+import { colors, typography, spacing, borderRadius } from '@/theme';
 import type { Sermon } from '@/types';
 
 export default function QueueScreen() {
@@ -24,6 +25,7 @@ export default function QueueScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const themeColors = isDark ? colors.dark : colors.light;
+  const insets = useSafeAreaInsets();
 
   const {
     queue,
@@ -119,9 +121,8 @@ export default function QueueScreen() {
   };
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: themeColors.background }]}
-      edges={['top']}
+    <View
+      style={[styles.container, { backgroundColor: themeColors.background, paddingTop: insets.top }]}
     >
       {/* Header */}
       <View style={styles.header}>
@@ -173,7 +174,7 @@ export default function QueueScreen() {
           </Text>
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 

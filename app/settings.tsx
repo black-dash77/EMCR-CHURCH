@@ -1,3 +1,19 @@
+import { useRouter } from 'expo-router';
+import {
+  ChevronLeft,
+  Moon,
+  Sun,
+  Smartphone,
+  Bell,
+  BellRing,
+  Music,
+  Calendar,
+  Megaphone,
+  Play,
+  Gauge,
+  Trash2,
+  Info,
+} from 'lucide-react-native';
 import {
   View,
   Text,
@@ -8,36 +24,34 @@ import {
   Switch,
   Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  ChevronLeft,
-  Moon,
-  Sun,
-  Smartphone,
-  Bell,
-  Play,
-  Gauge,
-  Trash2,
-  Info,
-} from 'lucide-react-native';
-import { colors, typography, spacing, borderRadius } from '@/theme';
-import { useUserStore } from '@/stores/useUserStore';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { TransparentHeaderBackground, HEADER_HEIGHT } from '@/components/TransparentHeaderBackground';
 import { useAudioStore } from '@/stores/useAudioStore';
+import { useUserStore } from '@/stores/useUserStore';
+import { colors, typography, spacing, borderRadius } from '@/theme';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const themeColors = isDark ? colors.dark : colors.light;
+  const insets = useSafeAreaInsets();
 
   const {
     darkMode,
     notificationsEnabled,
+    notifyNewSermons,
+    notifyNewEvents,
+    notifyNewAnnouncements,
     autoPlayNext,
     defaultPlaybackSpeed,
     setDarkMode,
     setNotificationsEnabled,
+    setNotifyNewSermons,
+    setNotifyNewEvents,
+    setNotifyNewAnnouncements,
     setAutoPlayNext,
     setDefaultPlaybackSpeed,
     clearHistory,
@@ -70,21 +84,12 @@ export default function SettingsScreen() {
     setDefaultPlaybackSpeed(speeds[nextIndex]);
   };
 
-  return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: themeColors.background }]}
-      edges={['top']}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={28} color={themeColors.text} />
-        </Pressable>
-        <Text style={[styles.title, { color: themeColors.text }]}>Paramètres</Text>
-        <View style={{ width: 44 }} />
-      </View>
+  const headerTotalHeight = HEADER_HEIGHT + insets.top + 20;
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+  return (
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: headerTotalHeight }]}>
+
         {/* Appearance */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>
@@ -234,10 +239,10 @@ export default function SettingsScreen() {
               </View>
               <View style={styles.settingContent}>
                 <Text style={[styles.settingLabel, { color: themeColors.text }]}>
-                  Notifications
+                  Activer les notifications
                 </Text>
                 <Text style={[styles.settingDescription, { color: themeColors.textSecondary }]}>
-                  Recevoir des notifications
+                  Recevoir des notifications push
                 </Text>
               </View>
               <Switch
@@ -250,6 +255,85 @@ export default function SettingsScreen() {
                 thumbColor="#FFFFFF"
               />
             </View>
+
+            {notificationsEnabled && (
+              <>
+                <View style={[styles.divider, { backgroundColor: themeColors.divider }]} />
+
+                <View style={styles.settingRow}>
+                  <View style={[styles.iconCircle, { backgroundColor: colors.accent.purple + '20' }]}>
+                    <Music size={20} color={colors.accent.purple} />
+                  </View>
+                  <View style={styles.settingContent}>
+                    <Text style={[styles.settingLabel, { color: themeColors.text }]}>
+                      Nouvelles prédications
+                    </Text>
+                    <Text style={[styles.settingDescription, { color: themeColors.textSecondary }]}>
+                      Quand une nouvelle prédication est publiée
+                    </Text>
+                  </View>
+                  <Switch
+                    value={notifyNewSermons}
+                    onValueChange={setNotifyNewSermons}
+                    trackColor={{
+                      false: themeColors.border,
+                      true: colors.primary[500],
+                    }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                <View style={[styles.divider, { backgroundColor: themeColors.divider }]} />
+
+                <View style={styles.settingRow}>
+                  <View style={[styles.iconCircle, { backgroundColor: colors.accent.teal + '20' }]}>
+                    <Calendar size={20} color={colors.accent.teal} />
+                  </View>
+                  <View style={styles.settingContent}>
+                    <Text style={[styles.settingLabel, { color: themeColors.text }]}>
+                      Nouveaux événements
+                    </Text>
+                    <Text style={[styles.settingDescription, { color: themeColors.textSecondary }]}>
+                      Quand un nouvel événement est ajouté
+                    </Text>
+                  </View>
+                  <Switch
+                    value={notifyNewEvents}
+                    onValueChange={setNotifyNewEvents}
+                    trackColor={{
+                      false: themeColors.border,
+                      true: colors.primary[500],
+                    }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                <View style={[styles.divider, { backgroundColor: themeColors.divider }]} />
+
+                <View style={styles.settingRow}>
+                  <View style={[styles.iconCircle, { backgroundColor: colors.accent.orange + '20' }]}>
+                    <Megaphone size={20} color={colors.accent.orange} />
+                  </View>
+                  <View style={styles.settingContent}>
+                    <Text style={[styles.settingLabel, { color: themeColors.text }]}>
+                      Nouvelles annonces
+                    </Text>
+                    <Text style={[styles.settingDescription, { color: themeColors.textSecondary }]}>
+                      Quand une nouvelle annonce est publiée
+                    </Text>
+                  </View>
+                  <Switch
+                    value={notifyNewAnnouncements}
+                    onValueChange={setNotifyNewAnnouncements}
+                    trackColor={{
+                      false: themeColors.border,
+                      true: colors.primary[500],
+                    }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+              </>
+            )}
           </View>
         </View>
 
@@ -301,7 +385,25 @@ export default function SettingsScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
-    </SafeAreaView>
+
+      {/* Header Transparent avec gradient */}
+      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+        <TransparentHeaderBackground height={headerTotalHeight + 40} />
+
+        <View style={styles.headerContent}>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <ChevronLeft size={28} color={themeColors.text} />
+          </Pressable>
+
+          <Animated.View entering={FadeInDown.duration(500).springify()} style={styles.headerTitles}>
+            <Text style={[styles.title, { color: themeColors.text }]}>Paramètres</Text>
+            <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
+              Personnaliser l'application
+            </Text>
+          </Animated.View>
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -309,18 +411,32 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
+  headerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: spacing[2],
-    paddingVertical: spacing[2],
+  },
+  headerTitles: {
+    flex: 1,
+    marginLeft: spacing[2],
   },
   backButton: {
     padding: spacing[2],
   },
   title: {
-    ...typography.titleLarge,
+    ...typography.headlineMedium,
+    fontWeight: '700',
+  },
+  subtitle: {
+    ...typography.bodySmall,
+    marginTop: 2,
   },
   scrollContent: {
     paddingHorizontal: spacing[4],

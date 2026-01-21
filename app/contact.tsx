@@ -1,3 +1,6 @@
+import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
+import { ChevronLeft, Send, Mail, Phone, MapPin } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   View,
@@ -12,18 +15,19 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, Send, Mail, Phone, MapPin } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
-import { colors, typography, spacing, borderRadius } from '@/theme';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { TransparentHeaderBackground, HEADER_HEIGHT } from '@/components/TransparentHeaderBackground';
 import { contactApi } from '@/services/api';
+import { colors, typography, spacing, borderRadius } from '@/theme';
 
 export default function ContactScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const themeColors = isDark ? colors.dark : colors.light;
+  const insets = useSafeAreaInsets();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -75,26 +79,16 @@ export default function ContactScreen() {
     }
   };
 
-  return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: themeColors.background }]}
-      edges={['top']}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={28} color={themeColors.text} />
-        </Pressable>
-        <Text style={[styles.title, { color: themeColors.text }]}>Contact</Text>
-        <View style={{ width: 44 }} />
-      </View>
+  const headerTotalHeight = HEADER_HEIGHT + insets.top + 20;
 
+  return (
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingTop: headerTotalHeight }]}
           showsVerticalScrollIndicator={false}
         >
           {/* Contact Info */}
@@ -108,7 +102,7 @@ export default function ContactScreen() {
                   Adresse
                 </Text>
                 <Text style={[styles.infoValue, { color: themeColors.text }]}>
-                  123 Rue de l'Église, Paris
+                  Rte de Saint-Julien 173, 1228 Plan-les-Ouates
                 </Text>
               </View>
             </View>
@@ -258,7 +252,25 @@ export default function ContactScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+
+      {/* Header Transparent avec gradient */}
+      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+        <TransparentHeaderBackground height={headerTotalHeight + 40} />
+
+        <View style={styles.headerContent}>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <ChevronLeft size={28} color={themeColors.text} />
+          </Pressable>
+
+          <Animated.View entering={FadeInDown.duration(500).springify()} style={styles.headerTitles}>
+            <Text style={[styles.title, { color: themeColors.text }]}>Contact</Text>
+            <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
+              Nous contacter
+            </Text>
+          </Animated.View>
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -266,18 +278,32 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
+  headerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: spacing[2],
-    paddingVertical: spacing[2],
+  },
+  headerTitles: {
+    flex: 1,
+    marginLeft: spacing[2],
   },
   backButton: {
     padding: spacing[2],
   },
   title: {
-    ...typography.titleLarge,
+    ...typography.headlineMedium,
+    fontWeight: '700',
+  },
+  subtitle: {
+    ...typography.bodySmall,
+    marginTop: 2,
   },
   scrollContent: {
     paddingHorizontal: spacing[4],

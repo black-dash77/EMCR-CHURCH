@@ -1,8 +1,11 @@
-export { sermonsApi } from './sermons';
-export { eventsApi } from './events';
+import type { Announcement, Member, Photo, Ministry, ContactMessage, ChurchSettings } from '@/types';
 
 import { supabase } from '../supabase';
-import type { Announcement, Member, Photo, Ministry, ContactMessage } from '@/types';
+
+export { sermonsApi } from './sermons';
+export { eventsApi } from './events';
+export { speakersApi } from './speakers';
+export { seminarsApi } from './seminars';
 
 export const announcementsApi = {
   async getAll(): Promise<Announcement[]> {
@@ -13,6 +16,28 @@ export const announcementsApi = {
 
     if (error) throw error;
     return data || [];
+  },
+
+  async getLatest(limit: number = 1): Promise<Announcement[]> {
+    const { data, error } = await supabase
+      .from('announcements')
+      .select('*')
+      .order('date', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async getById(id: string): Promise<Announcement | null> {
+    const { data, error } = await supabase
+      .from('announcements')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    return data;
   },
 
   async getUrgent(): Promise<Announcement[]> {
@@ -129,5 +154,47 @@ export const contactApi = {
     ]);
 
     if (error) throw error;
+  },
+};
+
+export const settingsApi = {
+  async get(): Promise<ChurchSettings | null> {
+    const { data, error } = await supabase
+      .from('church_settings')
+      .select('*')
+      .single();
+
+    if (error) {
+      // Si la table n'existe pas ou aucun enregistrement, retourner les valeurs par défaut
+      console.warn('Settings not found, using defaults');
+      return null;
+    }
+    return data;
+  },
+
+  getDefaults(): ChurchSettings {
+    return {
+      id: 'default',
+      sunday_service_title: 'Culte de Louange et d\'Adoration',
+      sunday_service_time: 'Dimanche à 10h00',
+      sunday_service_label: 'Ce Dimanche',
+      sunday_service_badge: 'Bientôt',
+      hero_title_line1: 'Église Missionnaire',
+      hero_title_line2: 'Christ est Roi',
+      hero_verse: '"Car là où deux ou trois sont assemblés en mon nom, je suis au milieu d\'eux."',
+      hero_verse_reference: 'Matthieu 18:20',
+      updated_at: new Date().toISOString(),
+    };
+  },
+
+  subscribeToChanges(callback: (payload: any) => void) {
+    return supabase
+      .channel('church-settings-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'church_settings' },
+        callback
+      )
+      .subscribe();
   },
 };

@@ -1,6 +1,7 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import type { Playlist, HistoryEntry, Sermon } from '@/types';
 
 interface UserState {
@@ -16,6 +17,9 @@ interface UserState {
   // Preferences
   darkMode: 'system' | 'light' | 'dark';
   notificationsEnabled: boolean;
+  notifyNewSermons: boolean;
+  notifyNewEvents: boolean;
+  notifyNewAnnouncements: boolean;
   autoPlayNext: boolean;
   defaultPlaybackSpeed: number;
 
@@ -40,8 +44,16 @@ interface UserState {
   // Preference actions
   setDarkMode: (mode: 'system' | 'light' | 'dark') => void;
   setNotificationsEnabled: (enabled: boolean) => void;
+  setNotifyNewSermons: (enabled: boolean) => void;
+  setNotifyNewEvents: (enabled: boolean) => void;
+  setNotifyNewAnnouncements: (enabled: boolean) => void;
   setAutoPlayNext: (enabled: boolean) => void;
   setDefaultPlaybackSpeed: (speed: number) => void;
+
+  // Additional actions
+  addFavorite: (sermonId: string) => void;
+  removeFavorite: (sermonId: string) => void;
+  reorderPlaylist: (playlistId: string, sermonIds: string[]) => void;
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
@@ -55,6 +67,9 @@ export const useUserStore = create<UserState>()(
       history: [],
       darkMode: 'system',
       notificationsEnabled: true,
+      notifyNewSermons: true,
+      notifyNewEvents: true,
+      notifyNewAnnouncements: true,
       autoPlayNext: true,
       defaultPlaybackSpeed: 1,
 
@@ -185,12 +200,48 @@ export const useUserStore = create<UserState>()(
         set({ notificationsEnabled: enabled });
       },
 
+      setNotifyNewSermons: (enabled) => {
+        set({ notifyNewSermons: enabled });
+      },
+
+      setNotifyNewEvents: (enabled) => {
+        set({ notifyNewEvents: enabled });
+      },
+
+      setNotifyNewAnnouncements: (enabled) => {
+        set({ notifyNewAnnouncements: enabled });
+      },
+
       setAutoPlayNext: (enabled) => {
         set({ autoPlayNext: enabled });
       },
 
       setDefaultPlaybackSpeed: (speed) => {
         set({ defaultPlaybackSpeed: speed });
+      },
+
+      // Additional actions
+      addFavorite: (sermonId) => {
+        set((state) => {
+          if (state.favorites.includes(sermonId)) return state;
+          return { favorites: [...state.favorites, sermonId] };
+        });
+      },
+
+      removeFavorite: (sermonId) => {
+        set((state) => ({
+          favorites: state.favorites.filter((id) => id !== sermonId),
+        }));
+      },
+
+      reorderPlaylist: (playlistId, sermonIds) => {
+        set((state) => ({
+          playlists: state.playlists.map((p) =>
+            p.id === playlistId
+              ? { ...p, sermonIds, updatedAt: new Date().toISOString() }
+              : p
+          ),
+        }));
       },
     }),
     {

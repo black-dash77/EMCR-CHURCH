@@ -19,7 +19,22 @@
       "Bash(yes:*)",
       "Bash(node:*)",
       "Bash(npm uninstall:*)",
-      "Bash(npm ls:*)"
+      "Bash(npm ls:*)",
+      "mcp__supabase__list_tables",
+      "Bash(npx expo start:*)",
+      "mcp__supabase__apply_migration",
+      "Bash(xargs cat:*)",
+      "Bash(wc:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run lint:fix:*)",
+      "Bash(npx expo install:*)",
+      "Bash(supabase --version:*)",
+      "Bash(npx eslint:*)",
+      "mcp__github__create_repository",
+      "Bash(git remote add:*)",
+      "Bash(git push:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(git config:*)"
     ]
   },
   "enabledMcpjsonServers": [

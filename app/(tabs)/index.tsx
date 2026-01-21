@@ -1,3 +1,17 @@
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import {
+  Play,
+  Pause,
+  ChevronRight,
+  Clock,
+  MapPin,
+  Headphones,
+  ImageIcon,
+  Megaphone,
+  AlertCircle,
+} from 'lucide-react-native';
 import { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -10,13 +24,13 @@ import {
   Image,
   Dimensions,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Play, Calendar, ChevronRight, Users } from 'lucide-react-native';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { sermonsApi, eventsApi, announcementsApi } from '@/services/api';
+import { useAudioStore } from '@/stores/useAudioStore';
 import { colors, typography, spacing, borderRadius } from '@/theme';
-import { sermonsApi, eventsApi, ministriesApi } from '@/services/api';
-import type { Sermon, Event, Ministry } from '@/types';
+import type { Sermon, Event, Announcement } from '@/types';
 
 const { width } = Dimensions.get('window');
 
@@ -25,22 +39,25 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const themeColors = isDark ? colors.dark : colors.light;
+  const insets = useSafeAreaInsets();
 
   const [refreshing, setRefreshing] = useState(false);
   const [latestSermons, setLatestSermons] = useState<Sermon[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
-  const [ministries, setMinistries] = useState<Ministry[]>([]);
+  const [latestAnnouncement, setLatestAnnouncement] = useState<Announcement | null>(null);
+
+  const { currentSermon, isPlaying, playSermon, togglePlayPause, setQueue } = useAudioStore();
 
   const fetchData = useCallback(async () => {
     try {
-      const [sermons, events, mins] = await Promise.all([
-        sermonsApi.getLatest(5),
-        eventsApi.getUpcoming(3),
-        ministriesApi.getAll(),
+      const [sermons, events, announcements] = await Promise.all([
+        sermonsApi.getLatest(6),
+        eventsApi.getUpcoming(2),
+        announcementsApi.getLatest(1),
       ]);
       setLatestSermons(sermons);
       setUpcomingEvents(events);
-      setMinistries(mins);
+      setLatestAnnouncement(announcements[0] || null);
     } catch (error) {
       console.error('Error fetching data:', error);
     }
@@ -56,22 +73,57 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [fetchData]);
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'short',
-    });
+  const featuredSermon = latestSermons[0];
+  const recentSermons = latestSermons.slice(1, 6);
+  const nextEvent = upcomingEvents[0];
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Bonjour';
+    if (hour < 18) return 'Bon après-midi';
+    return 'Bonsoir';
   };
 
+  const handlePlayFeatured = async () => {
+    if (!featuredSermon) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    if (currentSermon?.id === featuredSermon.id) {
+      await togglePlayPause();
+    } else {
+      await playSermon(featuredSermon);
+    }
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    if (mins >= 60) {
+      const hrs = Math.floor(mins / 60);
+      return `${hrs}h${mins % 60 > 0 ? ` ${mins % 60}min` : ''}`;
+    }
+    return `${mins} min`;
+  };
+
+  const formatEventDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffDays = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return "Aujourd'hui";
+    if (diffDays === 1) return 'Demain';
+    if (diffDays < 7) {
+      return date.toLocaleDateString('fr-FR', { weekday: 'long' });
+    }
+    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  };
+
+  const isFeaturedPlaying = currentSermon?.id === featuredSermon?.id && isPlaying;
+
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: themeColors.background }]}
-      edges={['top']}
-    >
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -80,177 +132,354 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* Hero Section */}
-        <LinearGradient
-          colors={[colors.primary[500], colors.primary[700]]}
-          style={styles.hero}
-        >
-          <Text style={styles.heroTitle}>Église Missionnaire</Text>
-          <Text style={styles.heroSubtitle}>Christ est Roi</Text>
-          <Text style={styles.heroVerse}>
-            "Car là où deux ou trois sont assemblés en mon nom, je suis au milieu d'eux."
-          </Text>
-          <Text style={styles.heroReference}>Matthieu 18:20</Text>
-        </LinearGradient>
-
-        {/* This Sunday */}
-        <View style={[styles.section, { backgroundColor: themeColors.card }]}>
-          <View style={styles.sundayHeader}>
-            <Calendar size={20} color={colors.primary[500]} />
-            <Text style={[styles.sundayLabel, { color: colors.primary[500] }]}>
-              Ce Dimanche
+        {/* Header */}
+        <Animated.View entering={FadeIn.duration(400)} style={styles.header}>
+          <View>
+            <Text style={[styles.greeting, { color: themeColors.textSecondary }]}>
+              {getGreeting()}
+            </Text>
+            <Text style={[styles.churchName, { color: themeColors.text }]}>
+              EMCR Church
             </Text>
           </View>
-          <Text style={[styles.sundayTitle, { color: themeColors.text }]}>
-            Culte de Louange et d'Adoration
-          </Text>
-          <Text style={[styles.sundayTime, { color: themeColors.textSecondary }]}>
-            Dimanche à 10h00
-          </Text>
-        </View>
+        </Animated.View>
 
-        {/* Latest Sermons */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-              Dernières Prédications
-            </Text>
+        {/* Featured Sermon */}
+        {featuredSermon && (
+          <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.featuredSection}>
             <Pressable
-              onPress={() => router.push('/(tabs)/sermons')}
-              style={styles.seeAllButton}
+              style={({ pressed }) => [
+                styles.featuredCard,
+                { opacity: pressed ? 0.95 : 1 },
+              ]}
+              onPress={() => router.push(`/sermon/${featuredSermon.id}`)}
             >
-              <Text style={[styles.seeAllText, { color: colors.primary[500] }]}>
-                Voir tout
-              </Text>
-              <ChevronRight size={16} color={colors.primary[500]} />
-            </Pressable>
-          </View>
+              <View style={styles.featuredImageContainer}>
+                {featuredSermon.cover_image ? (
+                  <Image
+                    source={{ uri: featuredSermon.cover_image }}
+                    style={styles.featuredImage}
+                  />
+                ) : (
+                  <LinearGradient
+                    colors={[colors.primary[400], colors.primary[700]]}
+                    style={styles.featuredImage}
+                  />
+                )}
+                <LinearGradient
+                  colors={['transparent', 'rgba(0,0,0,0.8)']}
+                  style={styles.featuredGradient}
+                />
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalScroll}
-          >
-            {latestSermons.map((sermon) => (
-              <Pressable
-                key={sermon.id}
-                style={[styles.sermonCard, { backgroundColor: themeColors.card }]}
-                onPress={() => router.push(`/sermon/${sermon.id}`)}
-              >
-                <View style={styles.sermonCover}>
-                  {sermon.cover_image ? (
-                    <Image
-                      source={{ uri: sermon.cover_image }}
-                      style={styles.sermonImage}
-                    />
+                {/* Play Button */}
+                <Pressable
+                  style={[styles.featuredPlayButton, { backgroundColor: colors.primary[500] }]}
+                  onPress={handlePlayFeatured}
+                >
+                  {isFeaturedPlaying ? (
+                    <Pause size={28} color="#FFFFFF" fill="#FFFFFF" />
                   ) : (
-                    <LinearGradient
-                      colors={[colors.primary[400], colors.primary[600]]}
-                      style={styles.sermonImagePlaceholder}
-                    />
+                    <Play size={28} color="#FFFFFF" fill="#FFFFFF" style={{ marginLeft: 3 }} />
                   )}
-                  <View style={styles.playButton}>
-                    <Play size={20} color="#FFFFFF" fill="#FFFFFF" />
+                </Pressable>
+
+                {/* Content overlay */}
+                <View style={styles.featuredContent}>
+                  <View style={styles.featuredBadge}>
+                    <Headphones size={12} color={colors.primary[400]} />
+                    <Text style={styles.featuredBadgeText}>Dernière prédication</Text>
+                  </View>
+                  <Text style={styles.featuredTitle} numberOfLines={2}>
+                    {featuredSermon.title}
+                  </Text>
+                  <View style={styles.featuredMeta}>
+                    <Text style={styles.featuredSpeaker}>{featuredSermon.speaker}</Text>
+                    {featuredSermon.duration_seconds && (
+                      <>
+                        <View style={styles.metaDot} />
+                        <Text style={styles.featuredDuration}>
+                          {formatDuration(featuredSermon.duration_seconds)}
+                        </Text>
+                      </>
+                    )}
                   </View>
                 </View>
-                <Text
-                  style={[styles.sermonTitle, { color: themeColors.text }]}
-                  numberOfLines={2}
-                >
-                  {sermon.title}
-                </Text>
-                <Text
-                  style={[styles.sermonSpeaker, { color: themeColors.textSecondary }]}
-                  numberOfLines={1}
-                >
-                  {sermon.speaker}
-                </Text>
-                <Text style={[styles.sermonDate, { color: themeColors.textTertiary }]}>
-                  {formatDate(sermon.date)}
+              </View>
+            </Pressable>
+          </Animated.View>
+        )}
+
+        {/* Latest Announcement */}
+        {latestAnnouncement && (
+          <Animated.View entering={FadeInDown.delay(150).duration(500)} style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+                Dernière annonce
+              </Text>
+              <Pressable
+                onPress={() => router.push('/(tabs)/announcements')}
+                hitSlop={8}
+              >
+                <Text style={[styles.seeAll, { color: colors.primary[500] }]}>
+                  Tout voir
                 </Text>
               </Pressable>
-            ))}
-          </ScrollView>
-        </View>
+            </View>
 
-        {/* Upcoming Events */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-              Événements à Venir
-            </Text>
             <Pressable
-              onPress={() => router.push('/(tabs)/events')}
-              style={styles.seeAllButton}
+              style={({ pressed }) => [
+                styles.announcementCard,
+                {
+                  backgroundColor: latestAnnouncement.urgent
+                    ? isDark ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.1)'
+                    : themeColors.card,
+                  borderColor: latestAnnouncement.urgent ? '#ef4444' : 'transparent',
+                  borderWidth: latestAnnouncement.urgent ? 1 : 0,
+                  opacity: pressed ? 0.95 : 1,
+                },
+              ]}
+              onPress={() => router.push('/(tabs)/announcements')}
             >
-              <Text style={[styles.seeAllText, { color: colors.primary[500] }]}>
-                Voir tout
-              </Text>
-              <ChevronRight size={16} color={colors.primary[500]} />
-            </Pressable>
-          </View>
-
-          {upcomingEvents.map((event) => (
-            <Pressable
-              key={event.id}
-              style={[styles.eventCard, { backgroundColor: themeColors.card }]}
-              onPress={() => router.push(`/event/${event.id}`)}
-            >
-              <View style={styles.eventDateBox}>
-                <Text style={styles.eventDay}>
-                  {new Date(event.date).getDate()}
-                </Text>
-                <Text style={styles.eventMonth}>
-                  {new Date(event.date).toLocaleDateString('fr-FR', { month: 'short' })}
-                </Text>
+              {/* Image ou icône */}
+              <View style={styles.announcementImageContainer}>
+                {latestAnnouncement.image ? (
+                  <Image source={{ uri: latestAnnouncement.image }} style={styles.announcementImage} />
+                ) : (
+                  <LinearGradient
+                    colors={latestAnnouncement.urgent
+                      ? ['#ef4444', '#dc2626']
+                      : colors.gradients.primarySoft
+                    }
+                    style={styles.announcementImage}
+                  >
+                    {latestAnnouncement.urgent ? (
+                      <AlertCircle size={24} color="rgba(255,255,255,0.9)" />
+                    ) : (
+                      <Megaphone size={24} color="rgba(255,255,255,0.7)" />
+                    )}
+                  </LinearGradient>
+                )}
               </View>
-              <View style={styles.eventInfo}>
-                <Text style={[styles.eventTitle, { color: themeColors.text }]}>
-                  {event.title}
-                </Text>
-                <Text style={[styles.eventTime, { color: themeColors.textSecondary }]}>
-                  {event.time} • {event.location}
-                </Text>
-              </View>
-              <ChevronRight size={20} color={themeColors.textTertiary} />
-            </Pressable>
-          ))}
-        </View>
 
-        {/* Ministries */}
-        <View style={styles.sectionContainer}>
-          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-            Nos Ministères
-          </Text>
-          <View style={styles.ministriesGrid}>
-            {ministries.slice(0, 6).map((ministry) => (
-              <View
-                key={ministry.id}
-                style={[styles.ministryCard, { backgroundColor: themeColors.card }]}
-              >
-                <View
-                  style={[
-                    styles.ministryIcon,
-                    { backgroundColor: colors.primary[100] },
-                  ]}
-                >
-                  <Users size={24} color={colors.primary[500]} />
-                </View>
+              {/* Contenu */}
+              <View style={styles.announcementContent}>
+                {latestAnnouncement.urgent && (
+                  <View style={styles.urgentBadge}>
+                    <AlertCircle size={10} color="#FFFFFF" />
+                    <Text style={styles.urgentBadgeText}>Urgent</Text>
+                  </View>
+                )}
                 <Text
-                  style={[styles.ministryName, { color: themeColors.text }]}
+                  style={[styles.announcementTitle, { color: themeColors.text }]}
                   numberOfLines={2}
                 >
-                  {ministry.name}
+                  {latestAnnouncement.title}
+                </Text>
+                {latestAnnouncement.description && (
+                  <Text
+                    style={[styles.announcementDescription, { color: themeColors.textSecondary }]}
+                    numberOfLines={2}
+                  >
+                    {latestAnnouncement.description}
+                  </Text>
+                )}
+                <Text style={[styles.announcementDate, { color: themeColors.textTertiary }]}>
+                  {new Date(latestAnnouncement.date).toLocaleDateString('fr-FR', {
+                    day: 'numeric',
+                    month: 'long',
+                  })}
                 </Text>
               </View>
-            ))}
-          </View>
-        </View>
 
-        {/* Bottom padding for tab bar */}
+              <ChevronRight size={20} color={themeColors.textTertiary} />
+            </Pressable>
+          </Animated.View>
+        )}
+
+        {/* Recent Sermons */}
+        {recentSermons.length > 0 && (
+          <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+                Prédications récentes
+              </Text>
+              <Pressable
+                onPress={() => router.push('/(tabs)/sermons')}
+                hitSlop={8}
+              >
+                <Text style={[styles.seeAll, { color: colors.primary[500] }]}>
+                  Tout voir
+                </Text>
+              </Pressable>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.sermonsScroll}
+            >
+              {recentSermons.map((sermon, index) => (
+                <Pressable
+                  key={sermon.id}
+                  style={({ pressed }) => [
+                    styles.sermonCard,
+                    { backgroundColor: themeColors.card, opacity: pressed ? 0.9 : 1 },
+                  ]}
+                  onPress={() => setQueue(latestSermons, index + 1)}
+                >
+                  <View style={styles.sermonImageContainer}>
+                    {sermon.cover_image ? (
+                      <Image source={{ uri: sermon.cover_image }} style={styles.sermonImage} />
+                    ) : (
+                      <LinearGradient
+                        colors={[colors.primary[300], colors.primary[600]]}
+                        style={styles.sermonImage}
+                      />
+                    )}
+                    <View style={styles.sermonPlayIcon}>
+                      <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
+                    </View>
+                  </View>
+                  <Text style={[styles.sermonTitle, { color: themeColors.text }]} numberOfLines={2}>
+                    {sermon.title}
+                  </Text>
+                  <Text style={[styles.sermonSpeaker, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                    {sermon.speaker}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Animated.View>
+        )}
+
+        {/* Next Event */}
+        {nextEvent && (
+          <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+                Prochain événement
+              </Text>
+              <Pressable
+                onPress={() => router.push('/(tabs)/events')}
+                hitSlop={8}
+              >
+                <Text style={[styles.seeAll, { color: colors.primary[500] }]}>
+                  Calendrier
+                </Text>
+              </Pressable>
+            </View>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.eventCard,
+                { backgroundColor: themeColors.card, opacity: pressed ? 0.95 : 1 },
+              ]}
+              onPress={() => router.push(`/event/${nextEvent.id}`)}
+            >
+              {/* Thumbnail avec date en overlay */}
+              <View style={styles.eventThumbnailContainer}>
+                {nextEvent.image ? (
+                  <Image source={{ uri: nextEvent.image }} style={styles.eventThumbnail} />
+                ) : (
+                  <LinearGradient
+                    colors={colors.gradients.primarySoft}
+                    style={styles.eventThumbnail}
+                  >
+                    <ImageIcon size={24} color="rgba(255,255,255,0.7)" />
+                  </LinearGradient>
+                )}
+                <View style={styles.eventDateBadge}>
+                  <Text style={styles.eventDateDay}>
+                    {new Date(nextEvent.date).getDate()}
+                  </Text>
+                  <Text style={styles.eventDateMonth}>
+                    {new Date(nextEvent.date).toLocaleDateString('fr-FR', { month: 'short' }).toUpperCase()}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.eventContent}>
+                <Text style={[styles.eventWhen, { color: colors.primary[500] }]}>
+                  {formatEventDate(nextEvent.date)}
+                </Text>
+                <Text style={[styles.eventTitle, { color: themeColors.text }]} numberOfLines={1}>
+                  {nextEvent.title}
+                </Text>
+                <View style={styles.eventMeta}>
+                  {nextEvent.time && (
+                    <View style={styles.eventMetaItem}>
+                      <Clock size={13} color={themeColors.textTertiary} />
+                      <Text style={[styles.eventMetaText, { color: themeColors.textSecondary }]}>
+                        {nextEvent.time}
+                      </Text>
+                    </View>
+                  )}
+                  {nextEvent.location && (
+                    <View style={styles.eventMetaItem}>
+                      <MapPin size={13} color={themeColors.textTertiary} />
+                      <Text style={[styles.eventMetaText, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                        {nextEvent.location}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              <ChevronRight size={20} color={themeColors.textTertiary} />
+            </Pressable>
+
+            {/* Second event if exists */}
+            {upcomingEvents[1] && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.eventCard,
+                  styles.eventCardSecondary,
+                  { backgroundColor: themeColors.card, opacity: pressed ? 0.95 : 1 },
+                ]}
+                onPress={() => router.push(`/event/${upcomingEvents[1].id}`)}
+              >
+                {/* Thumbnail avec date en overlay */}
+                <View style={styles.eventThumbnailContainerSmall}>
+                  {upcomingEvents[1].image ? (
+                    <Image source={{ uri: upcomingEvents[1].image }} style={styles.eventThumbnail} />
+                  ) : (
+                    <LinearGradient
+                      colors={colors.gradients.primarySoft}
+                      style={styles.eventThumbnail}
+                    >
+                      <ImageIcon size={18} color="rgba(255,255,255,0.7)" />
+                    </LinearGradient>
+                  )}
+                  <View style={styles.eventDateBadgeSmall}>
+                    <Text style={styles.eventDateDaySmall}>
+                      {new Date(upcomingEvents[1].date).getDate()}
+                    </Text>
+                    <Text style={styles.eventDateMonthSmall}>
+                      {new Date(upcomingEvents[1].date).toLocaleDateString('fr-FR', { month: 'short' }).toUpperCase()}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.eventContent}>
+                  <Text style={[styles.eventTitle, styles.eventTitleSmall, { color: themeColors.text }]} numberOfLines={1}>
+                    {upcomingEvents[1].title}
+                  </Text>
+                  <Text style={[styles.eventMetaText, { color: themeColors.textSecondary }]}>
+                    {formatEventDate(upcomingEvents[1].date)}
+                    {upcomingEvents[1].time && ` • ${upcomingEvents[1].time}`}
+                  </Text>
+                </View>
+
+                <ChevronRight size={18} color={themeColors.textTertiary} />
+              </Pressable>
+            )}
+          </Animated.View>
+        )}
+
+        {/* Bottom spacing for tab bar */}
         <View style={{ height: 100 }} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -261,88 +490,135 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
   },
-  hero: {
-    padding: spacing[6],
-    paddingTop: spacing[10],
-    paddingBottom: spacing[10],
-    alignItems: 'center',
+
+  // Header
+  header: {
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[4],
+    paddingBottom: spacing[5],
   },
-  heroTitle: {
-    ...typography.displaySmall,
-    color: '#FFFFFF',
-    textAlign: 'center',
-  },
-  heroSubtitle: {
-    ...typography.headlineLarge,
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginTop: spacing[1],
-  },
-  heroVerse: {
+  greeting: {
     ...typography.bodyMedium,
-    color: 'rgba(255, 255, 255, 0.9)',
-    textAlign: 'center',
-    marginTop: spacing[6],
-    fontStyle: 'italic',
+    marginBottom: 2,
+  },
+  churchName: {
+    ...typography.headlineSmall,
+    fontWeight: '700',
+  },
+
+  // Featured
+  featuredSection: {
     paddingHorizontal: spacing[4],
+    marginBottom: spacing[6],
   },
-  heroReference: {
-    ...typography.labelMedium,
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginTop: spacing[2],
+  featuredCard: {
+    borderRadius: borderRadius['2xl'],
+    overflow: 'hidden',
   },
-  section: {
-    margin: spacing[4],
-    padding: spacing[4],
-    borderRadius: borderRadius.xl,
+  featuredImageContainer: {
+    width: '100%',
+    aspectRatio: 16 / 10,
+    position: 'relative',
   },
-  sundayHeader: {
+  featuredImage: {
+    width: '100%',
+    height: '100%',
+  },
+  featuredGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  featuredPlayButton: {
+    position: 'absolute',
+    top: spacing[4],
+    right: spacing[4],
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  featuredContent: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: spacing[5],
+  },
+  featuredBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[2],
+    gap: spacing[1.5],
     marginBottom: spacing[2],
   },
-  sundayLabel: {
-    ...typography.labelLarge,
+  featuredBadgeText: {
+    ...typography.labelSmall,
+    color: colors.primary[400],
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  sundayTitle: {
-    ...typography.titleLarge,
+  featuredTitle: {
+    ...typography.headlineSmall,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    marginBottom: spacing[2],
   },
-  sundayTime: {
-    ...typography.bodyMedium,
-    marginTop: spacing[1],
+  featuredMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  sectionContainer: {
-    paddingHorizontal: spacing[4],
+  featuredSpeaker: {
+    ...typography.bodySmall,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  metaDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    marginHorizontal: spacing[2],
+  },
+  featuredDuration: {
+    ...typography.bodySmall,
+    color: 'rgba(255, 255, 255, 0.6)',
+  },
+
+  // Section
+  section: {
     marginBottom: spacing[6],
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: spacing[5],
     marginBottom: spacing[4],
   },
   sectionTitle: {
-    ...typography.titleLarge,
+    ...typography.titleMedium,
+    fontWeight: '600',
   },
-  seeAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[1],
-  },
-  seeAllText: {
+  seeAll: {
     ...typography.labelLarge,
+    fontWeight: '600',
   },
-  horizontalScroll: {
-    paddingRight: spacing[4],
+
+  // Sermons
+  sermonsScroll: {
+    paddingHorizontal: spacing[4],
     gap: spacing[3],
   },
   sermonCard: {
-    width: width * 0.4,
-    borderRadius: borderRadius.lg,
+    width: 140,
+    borderRadius: borderRadius.xl,
     overflow: 'hidden',
   },
-  sermonCover: {
+  sermonImageContainer: {
     width: '100%',
     aspectRatio: 1,
     position: 'relative',
@@ -350,94 +626,190 @@ const styles = StyleSheet.create({
   sermonImage: {
     width: '100%',
     height: '100%',
+    borderRadius: borderRadius.lg,
   },
-  sermonImagePlaceholder: {
-    width: '100%',
-    height: '100%',
-  },
-  playButton: {
+  sermonPlayIcon: {
     position: 'absolute',
     bottom: spacing[2],
     right: spacing[2],
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primary[500],
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   sermonTitle: {
-    ...typography.titleSmall,
-    padding: spacing[3],
-    paddingBottom: 0,
+    ...typography.labelLarge,
+    fontWeight: '600',
+    marginTop: spacing[2],
+    paddingHorizontal: spacing[1],
   },
   sermonSpeaker: {
-    ...typography.bodySmall,
-    paddingHorizontal: spacing[3],
-    marginTop: spacing[1],
-  },
-  sermonDate: {
     ...typography.labelSmall,
-    padding: spacing[3],
-    paddingTop: spacing[1],
+    marginTop: 2,
+    paddingHorizontal: spacing[1],
+    paddingBottom: spacing[2],
   },
+
+  // Events
   eventCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginHorizontal: spacing[4],
     padding: spacing[3],
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing[3],
+    borderRadius: borderRadius['2xl'],
+    gap: spacing[4],
   },
-  eventDateBox: {
-    width: 50,
-    height: 50,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.primary[500],
+  eventCardSecondary: {
+    marginTop: spacing[3],
+    paddingVertical: spacing[3],
+  },
+  eventThumbnailContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  eventThumbnailContainerSmall: {
+    width: 56,
+    height: 56,
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  eventThumbnail: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  eventDay: {
-    ...typography.titleMedium,
+  eventDateBadge: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingVertical: 4,
+    alignItems: 'center',
+  },
+  eventDateBadgeSmall: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingVertical: 2,
+    alignItems: 'center',
+  },
+  eventDateDay: {
+    ...typography.labelMedium,
     color: '#FFFFFF',
+    fontWeight: '700',
+    lineHeight: 16,
   },
-  eventMonth: {
-    ...typography.labelSmall,
-    color: 'rgba(255, 255, 255, 0.8)',
-    textTransform: 'uppercase',
+  eventDateDaySmall: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    lineHeight: 14,
   },
-  eventInfo: {
+  eventDateMonth: {
+    fontSize: 9,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  eventDateMonthSmall: {
+    fontSize: 8,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  eventContent: {
     flex: 1,
-    marginLeft: spacing[3],
+  },
+  eventWhen: {
+    ...typography.labelSmall,
+    fontWeight: '600',
+    marginBottom: 2,
   },
   eventTitle: {
     ...typography.titleSmall,
+    fontWeight: '600',
+    marginBottom: spacing[1],
   },
-  eventTime: {
-    ...typography.bodySmall,
-    marginTop: spacing[1],
+  eventTitleSmall: {
+    ...typography.bodyMedium,
+    fontWeight: '500',
+    marginBottom: 2,
   },
-  ministriesGrid: {
+  eventMeta: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing[3],
-    marginTop: spacing[3],
   },
-  ministryCard: {
-    width: (width - spacing[4] * 2 - spacing[3] * 2) / 3,
-    padding: spacing[3],
-    borderRadius: borderRadius.lg,
+  eventMetaItem: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing[1],
   },
-  ministryIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  eventMetaText: {
+    ...typography.labelSmall,
+  },
+
+  // Announcements
+  announcementCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: spacing[4],
+    padding: spacing[4],
+    borderRadius: borderRadius['2xl'],
+    gap: spacing[4],
+  },
+  announcementImageContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+  },
+  announcementImage: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing[2],
   },
-  ministryName: {
-    ...typography.labelMedium,
-    textAlign: 'center',
+  announcementContent: {
+    flex: 1,
+  },
+  announcementTitle: {
+    ...typography.titleSmall,
+    fontWeight: '600',
+    marginBottom: spacing[1],
+  },
+  announcementDescription: {
+    ...typography.bodySmall,
+    marginBottom: spacing[1],
+  },
+  announcementDate: {
+    ...typography.labelSmall,
+  },
+  urgentBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#ef4444',
+    paddingHorizontal: spacing[2],
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+    gap: 4,
+    marginBottom: spacing[1],
+  },
+  urgentBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
 });

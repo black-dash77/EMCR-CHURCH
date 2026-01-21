@@ -1,3 +1,5 @@
+import { useRouter } from 'expo-router';
+import { ArrowLeft, User } from 'lucide-react-native';
 import { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -8,19 +10,25 @@ import {
   RefreshControl,
   Pressable,
   Image,
+  Dimensions,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, User } from 'lucide-react-native';
-import { colors, typography, spacing, borderRadius } from '@/theme';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { membersApi } from '@/services/api';
+import { colors, typography, spacing, borderRadius } from '@/theme';
 import type { Member } from '@/types';
+
+const { width } = Dimensions.get('window');
+const CARD_GAP = spacing[3];
+const CARD_WIDTH = (width - spacing[4] * 2 - CARD_GAP) / 2;
 
 export default function MembersScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const themeColors = isDark ? colors.dark : colors.light;
+  const insets = useSafeAreaInsets();
 
   const [members, setMembers] = useState<Member[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -69,54 +77,92 @@ export default function MembersScreen() {
     data: items,
   }));
 
-  const renderMember = ({ item }: { item: Member }) => (
-    <View style={[styles.memberCard, { backgroundColor: themeColors.card }]}>
-      <View style={styles.memberAvatar}>
-        {item.photo_url ? (
-          <Image source={{ uri: item.photo_url }} style={styles.avatarImage} />
-        ) : (
-          <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary[100] }]}>
-            <User size={24} color={colors.primary[500]} />
+  const renderMemberCard = (member: Member, index: number) => {
+    // Support multiple possible column names for the image
+    const imageUrl = member.photo_url || (member as any).photo || (member as any).image_url || (member as any).avatar;
+
+    return (
+      <Animated.View
+        key={member.id}
+        entering={FadeInDown.delay(index * 50).duration(400)}
+        style={styles.cardWrapper}
+      >
+        <View style={styles.card}>
+          {/* Photo */}
+          <View style={styles.imageContainer}>
+            {imageUrl ? (
+              <Image
+                source={{ uri: imageUrl }}
+                style={styles.memberImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={[styles.imagePlaceholder, { backgroundColor: themeColors.surface }]}>
+                <User size={48} color={themeColors.textTertiary} />
+              </View>
+            )}
           </View>
-        )}
-      </View>
-      <View style={styles.memberInfo}>
-        <Text style={[styles.memberName, { color: themeColors.text }]}>
-          {item.name}
-        </Text>
-        <Text style={[styles.memberRole, { color: themeColors.textSecondary }]}>
-          {item.role}
-        </Text>
-        {item.bio && (
-          <Text
-            style={[styles.memberBio, { color: themeColors.textTertiary }]}
-            numberOfLines={2}
-          >
-            {item.bio}
-          </Text>
-        )}
+
+          {/* Info */}
+          <View style={styles.cardInfo}>
+            <Text style={[styles.memberName, { color: themeColors.text }]} numberOfLines={2}>
+              {member.name}
+            </Text>
+            <Text style={[styles.memberRole, { color: colors.primary[500] }]} numberOfLines={1}>
+              {member.role}
+            </Text>
+          </View>
+        </View>
+      </Animated.View>
+    );
+  };
+
+  const renderSection = (section: { title: string; data: Member[] }) => (
+    <View style={styles.section}>
+      <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>
+        {section.title}
+      </Text>
+      <View style={styles.grid}>
+        {section.data.map((member, index) => renderMemberCard(member, index))}
       </View>
     </View>
   );
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: themeColors.background }]}
-      edges={['top']}
-    >
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={28} color={themeColors.text} />
-        </Pressable>
-        <Text style={[styles.title, { color: themeColors.text }]}>Membres</Text>
-        <View style={{ width: 44 }} />
+      <View style={[styles.header, { paddingTop: insets.top + spacing[2] }]}>
+        <View style={styles.headerRow}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.backButton,
+              { backgroundColor: themeColors.surface, opacity: pressed ? 0.7 : 1 },
+            ]}
+            onPress={() => router.back()}
+          >
+            <ArrowLeft size={20} color={themeColors.text} />
+          </Pressable>
+
+          <Animated.View entering={FadeIn.duration(400)} style={styles.headerCenter}>
+            <Text style={[styles.title, { color: themeColors.text }]}>Membres</Text>
+            <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
+              {members.length} personne{members.length !== 1 ? 's' : ''}
+            </Text>
+          </Animated.View>
+
+          {/* Spacer for centering */}
+          <View style={styles.backButton} />
+        </View>
       </View>
 
+      {/* Content */}
       <FlatList
         data={sections}
         keyExtractor={(item) => item.title}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingBottom: insets.bottom + spacing[6] },
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -125,26 +171,19 @@ export default function MembersScreen() {
             tintColor={colors.primary[500]}
           />
         }
-        renderItem={({ item: section }) => (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>
-              {section.title}
-            </Text>
-            {section.data.map((member) => (
-              <View key={member.id}>{renderMember({ item: member })}</View>
-            ))}
-          </View>
-        )}
+        renderItem={({ item }) => renderSection(item)}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <User size={48} color={themeColors.textTertiary} />
+            <View style={[styles.emptyIcon, { backgroundColor: themeColors.surface }]}>
+              <User size={32} color={themeColors.textTertiary} />
+            </View>
             <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>
               Aucun membre
             </Text>
           </View>
         }
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -152,22 +191,39 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+
+  // Header
   header: {
+    paddingHorizontal: spacing[4],
+    paddingBottom: spacing[4],
+  },
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing[2],
-    paddingVertical: spacing[2],
   },
   backButton: {
-    padding: spacing[2],
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerCenter: {
+    alignItems: 'center',
   },
   title: {
     ...typography.titleLarge,
+    fontWeight: '700',
   },
+  subtitle: {
+    ...typography.bodySmall,
+    marginTop: 2,
+  },
+
+  // Content
   listContent: {
     paddingHorizontal: spacing[4],
-    paddingBottom: 40,
   },
   section: {
     marginBottom: spacing[6],
@@ -175,49 +231,64 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...typography.labelLarge,
     textTransform: 'uppercase',
-    marginBottom: spacing[3],
+    letterSpacing: 1,
+    marginBottom: spacing[4],
   },
-  memberCard: {
+  grid: {
     flexDirection: 'row',
-    padding: spacing[3],
-    borderRadius: borderRadius.lg,
+    flexWrap: 'wrap',
+    gap: CARD_GAP,
+  },
+
+  // Card
+  cardWrapper: {
+    width: CARD_WIDTH,
+  },
+  card: {
+    width: '100%',
+  },
+  imageContainer: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
     marginBottom: spacing[3],
   },
-  memberAvatar: {
-    marginRight: spacing[3],
+  memberImage: {
+    width: '100%',
+    height: '100%',
   },
-  avatarImage: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-  },
-  avatarPlaceholder: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  imagePlaceholder: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  memberInfo: {
-    flex: 1,
+  cardInfo: {
+    paddingHorizontal: spacing[1],
   },
   memberName: {
     ...typography.titleSmall,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   memberRole: {
     ...typography.bodySmall,
-    marginTop: 2,
+    fontWeight: '500',
   },
-  memberBio: {
-    ...typography.bodySmall,
-    marginTop: spacing[1],
-  },
+
+  // Empty
   emptyState: {
-    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing[12],
+  },
+  emptyIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: spacing[10],
-    gap: spacing[3],
+    marginBottom: spacing[4],
   },
   emptyText: {
     ...typography.bodyMedium,

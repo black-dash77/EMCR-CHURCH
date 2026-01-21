@@ -1,5 +1,6 @@
-import { supabase } from '../supabase';
 import type { Event } from '@/types';
+
+import { supabase } from '../supabase';
 
 export const eventsApi = {
   async getAll(): Promise<Event[]> {

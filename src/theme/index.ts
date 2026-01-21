@@ -1,4 +1,4 @@
-export { colors, getColors, type ColorScheme } from './colors';
+export { colors, getColors, getThemeColors, type ColorScheme, type ThemeColors } from './colors';
 export { typography, fontWeights, type TypographyVariant } from './typography';
 export { spacing, borderRadius, shadows } from './spacing';
 
