@@ -29,6 +29,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { sermonsApi, eventsApi, announcementsApi } from '@/services/api';
 import { useAudioStore } from '@/stores/useAudioStore';
+import { useUserStore } from '@/stores/useUserStore';
 import { colors, typography, spacing, borderRadius } from '@/theme';
 import type { Sermon, Event, Announcement } from '@/types';
 
@@ -47,6 +48,7 @@ export default function HomeScreen() {
   const [latestAnnouncement, setLatestAnnouncement] = useState<Announcement | null>(null);
 
   const { currentSermon, isPlaying, playSermon, togglePlayPause, setQueue } = useAudioStore();
+  const { firstName } = useUserStore();
 
   const fetchData = useCallback(async () => {
     try {
@@ -136,7 +138,7 @@ export default function HomeScreen() {
         <Animated.View entering={FadeIn.duration(400)} style={styles.header}>
           <View>
             <Text style={[styles.greeting, { color: themeColors.textSecondary }]}>
-              {getGreeting()}
+              {getGreeting()}{firstName ? `, ${firstName}` : ''}
             </Text>
             <Text style={[styles.churchName, { color: themeColors.text }]}>
               EMCR Church

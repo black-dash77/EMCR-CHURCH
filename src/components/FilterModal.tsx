@@ -1,5 +1,5 @@
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { X, Check, ChevronDown, Calendar } from 'lucide-react-native';
+import { X, Check, ChevronDown, Calendar, Clock } from 'lucide-react-native';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -14,7 +14,13 @@ import {
 } from 'react-native';
 
 import { colors, getColors } from '@/theme/colors';
-import type { SermonFilters, Speaker } from '@/types';
+import type { SermonFilters, Speaker, DurationFilter } from '@/types';
+
+const DURATION_OPTIONS: { value: DurationFilter; label: string; description: string }[] = [
+  { value: 'short', label: 'Court', description: '< 30 min' },
+  { value: 'medium', label: 'Moyen', description: '30-60 min' },
+  { value: 'long', label: 'Long', description: '> 60 min' },
+];
 
 interface FilterModalProps {
   visible: boolean;
@@ -124,7 +130,8 @@ export function FilterModal({
       (filters.tags && filters.tags.length > 0) ||
       filters.dateFrom ||
       filters.dateTo ||
-      filters.seminarId
+      filters.seminarId ||
+      filters.durationFilter
     );
   };
 
@@ -305,6 +312,62 @@ export function FilterModal({
                 })}
               </View>
             )}
+
+          {/* Duration Section */}
+          {renderSection(
+            'Durée',
+            'duration',
+            <View style={styles.durationContainer}>
+              {DURATION_OPTIONS.map((option) => {
+                const isSelected = filters.durationFilter === option.value;
+                return (
+                  <Pressable
+                    key={option.value}
+                    style={[
+                      styles.durationChip,
+                      {
+                        backgroundColor: isSelected
+                          ? colors.primary[500]
+                          : themeColors.surface,
+                        borderColor: isSelected
+                          ? colors.primary[500]
+                          : themeColors.border,
+                      },
+                    ]}
+                    onPress={() =>
+                      setFilters({
+                        ...filters,
+                        durationFilter: isSelected ? undefined : option.value,
+                      })
+                    }
+                  >
+                    <Clock
+                      size={16}
+                      color={isSelected ? '#FFFFFF' : themeColors.textSecondary}
+                    />
+                    <View>
+                      <Text
+                        style={[
+                          styles.durationLabel,
+                          { color: isSelected ? '#FFFFFF' : themeColors.text },
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.durationDesc,
+                          { color: isSelected ? 'rgba(255,255,255,0.8)' : themeColors.textTertiary },
+                        ]}
+                      >
+                        {option.description}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
 
           {/* Date Range Section */}
           {renderSection(
@@ -554,6 +617,28 @@ const styles = StyleSheet.create({
   tagText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  durationContainer: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  durationChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  durationLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  durationDesc: {
+    fontSize: 11,
+    marginTop: 2,
   },
   dateSection: {
     gap: 16,

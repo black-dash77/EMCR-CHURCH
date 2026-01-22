@@ -17,8 +17,9 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
-  const { notificationsEnabled } = useUserStore();
+  const { notificationsEnabled, hasCompletedOnboarding } = useUserStore();
   const appState = useRef(AppState.currentState);
+  const hasCheckedOnboarding = useRef(false);
 
   const [fontsLoaded] = useFonts({
     // Add custom fonts here if needed
@@ -59,8 +60,16 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();
+
+      // Check onboarding status after splash screen hides
+      if (!hasCheckedOnboarding.current && !hasCompletedOnboarding) {
+        hasCheckedOnboarding.current = true;
+        setTimeout(() => {
+          router.replace('/onboarding');
+        }, 100);
+      }
     }
-  }, [fontsLoaded]);
+  }, [fontsLoaded, hasCompletedOnboarding]);
 
   if (!fontsLoaded) {
     return null;
@@ -80,6 +89,13 @@ export default function RootLayout() {
               animation: 'slide_from_right',
             }}
           >
+            <Stack.Screen
+              name="onboarding"
+              options={{
+                headerShown: false,
+                animation: 'fade',
+              }}
+            />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen
               name="sermon/[id]"

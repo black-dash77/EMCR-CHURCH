@@ -125,6 +125,17 @@ export const sermonsApi = {
       );
     }
 
+    // Duration filter: short (<30min), medium (30-60min), long (>60min)
+    if (filters.durationFilter) {
+      if (filters.durationFilter === 'short') {
+        query = query.lt('duration_seconds', 1800); // < 30 min
+      } else if (filters.durationFilter === 'medium') {
+        query = query.gte('duration_seconds', 1800).lt('duration_seconds', 3600); // 30-60 min
+      } else if (filters.durationFilter === 'long') {
+        query = query.gte('duration_seconds', 3600); // > 60 min
+      }
+    }
+
     // Apply sorting
     query = query.order(sort.field, { ascending: sort.direction === 'asc' });
 

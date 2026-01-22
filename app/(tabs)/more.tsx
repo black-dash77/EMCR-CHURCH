@@ -15,6 +15,7 @@ import {
   Mic,
   FolderOpen,
   ListMusic,
+  Church,
 } from 'lucide-react-native';
 import {
   View,
@@ -62,6 +63,13 @@ export default function MoreScreen() {
     {
       title: 'Contenu',
       items: [
+        {
+          icon: <Church size={20} color="#FFFFFF" />,
+          iconBg: '#7C3AED',
+          label: 'Notre Église',
+          description: 'Découvrez notre communauté',
+          route: '/church-info',
+        },
         {
           icon: <Mic size={20} color="#FFFFFF" />,
           iconBg: '#059669',

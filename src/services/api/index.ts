@@ -1,4 +1,4 @@
-import type { Announcement, Member, Photo, Ministry, ContactMessage, ChurchSettings } from '@/types';
+import type { Announcement, Member, Photo, Ministry, ContactMessage, ChurchSettings, ChurchInfo } from '@/types';
 
 import { supabase } from '../supabase';
 
@@ -193,6 +193,34 @@ export const settingsApi = {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'church_settings' },
+        callback
+      )
+      .subscribe();
+  },
+};
+
+export const churchInfoApi = {
+  async get(): Promise<ChurchInfo | null> {
+    const { data, error } = await supabase
+      .from('church_info')
+      .select('*')
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null;
+      }
+      throw error;
+    }
+    return data;
+  },
+
+  subscribeToChanges(callback: (payload: any) => void) {
+    return supabase
+      .channel('church-info-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'church_info' },
         callback
       )
       .subscribe();

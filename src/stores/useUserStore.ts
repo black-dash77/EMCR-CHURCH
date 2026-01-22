@@ -5,6 +5,11 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Playlist, HistoryEntry, Sermon } from '@/types';
 
 interface UserState {
+  // User Profile
+  firstName: string;
+  lastName: string;
+  hasCompletedOnboarding: boolean;
+
   // Favorites
   favorites: string[];
 
@@ -54,6 +59,9 @@ interface UserState {
   addFavorite: (sermonId: string) => void;
   removeFavorite: (sermonId: string) => void;
   reorderPlaylist: (playlistId: string, sermonIds: string[]) => void;
+
+  // Onboarding actions
+  completeOnboarding: (firstName: string, lastName: string) => void;
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
@@ -62,6 +70,9 @@ export const useUserStore = create<UserState>()(
   persist(
     (set, get) => ({
       // Initial state
+      firstName: '',
+      lastName: '',
+      hasCompletedOnboarding: false,
       favorites: [],
       playlists: [],
       history: [],
@@ -242,6 +253,15 @@ export const useUserStore = create<UserState>()(
               : p
           ),
         }));
+      },
+
+      // Onboarding
+      completeOnboarding: (firstName, lastName) => {
+        set({
+          firstName,
+          lastName,
+          hasCompletedOnboarding: true,
+        });
       },
     }),
     {

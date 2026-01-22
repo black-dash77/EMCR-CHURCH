@@ -70,6 +70,8 @@ export interface SermonSortOptions {
   direction: SortDirection;
 }
 
+export type DurationFilter = 'short' | 'medium' | 'long'; // < 30min, 30-60min, > 60min
+
 export interface SermonFilters {
   speakerId?: string;
   speakerName?: string;
@@ -79,6 +81,7 @@ export interface SermonFilters {
   dateTo?: string;
   seminarId?: string;
   searchQuery?: string;
+  durationFilter?: DurationFilter;
 }
 
 export interface Event {
@@ -164,6 +167,35 @@ export interface HistoryEntry {
 export type RepeatMode = 'off' | 'all' | 'one';
 
 export type PlaybackRate = 0.5 | 0.75 | 1 | 1.25 | 1.5 | 1.75 | 2;
+
+// ==========================================
+// CHURCH INFO (Notre Église)
+// ==========================================
+export interface ChurchInfo {
+  id: string;
+  name: string;
+  slogan: string | null;
+  description: string | null;
+  mission: string | null;
+  vision: string | null;
+  values: string[] | null;
+  history: string | null;
+  pastor_name: string | null;
+  pastor_photo: string | null;
+  pastor_message: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  facebook: string | null;
+  instagram: string | null;
+  youtube: string | null;
+  service_times: string | null;
+  logo_url: string | null;
+  cover_image: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface ChurchSettings {
   id: string;
