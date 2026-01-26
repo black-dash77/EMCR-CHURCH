@@ -686,4 +686,4 @@ Ce projet est prive et reserve a l'usage de l'Eglise EMCR.
 
 ---
 
-Developpe avec mass par l'equipe EMCR
+Developpe par **Kiye Mateus** et **Claude**
