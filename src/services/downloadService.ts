@@ -42,12 +42,31 @@ class DownloadService {
   ): Promise<DownloadResult> {
     const store = useDownloadStore.getState();
 
+    // Check if audio URL exists
+    if (!sermon.audio_url) {
+      console.error('Download failed: No audio URL for sermon', sermon.id);
+      return {
+        success: false,
+        error: 'Cette prédication n\'a pas de fichier audio disponible.',
+      };
+    }
+
     // Check if already downloaded
     if (store.isDownloaded(sermon.id)) {
-      return {
-        success: true,
-        localUri: store.getLocalUri(sermon.id) || undefined,
-      };
+      const localUri = store.getLocalUri(sermon.id);
+      // Verify file still exists
+      if (localUri) {
+        try {
+          const fileInfo = await FileSystem.getInfoAsync(localUri);
+          if (fileInfo.exists) {
+            return { success: true, localUri };
+          }
+          // File doesn't exist, remove from store and re-download
+          await store.removeDownload(sermon.id);
+        } catch {
+          await store.removeDownload(sermon.id);
+        }
+      }
     }
 
     try {
@@ -57,6 +76,9 @@ class DownloadService {
       const localUri = `${DOWNLOAD_DIRECTORY}${filename}`;
 
       store.setDownloadProgress(sermon.id, 0, 'downloading');
+
+      console.log('Starting download from:', sermon.audio_url);
+      console.log('Saving to:', localUri);
 
       const downloadResumable = FileSystem.createDownloadResumable(
         sermon.audio_url,
@@ -74,7 +96,9 @@ class DownloadService {
 
       if (result?.uri) {
         const fileInfo = await FileSystem.getInfoAsync(result.uri);
-        const fileSize = (fileInfo as { size?: number }).size || 0;
+        const fileSize = (fileInfo as { exists: boolean; size?: number }).size || 0;
+
+        console.log('Download completed:', result.uri, 'Size:', fileSize);
 
         store.addDownload(sermon, result.uri, fileSize);
         store.setDownloadProgress(sermon.id, 1, 'completed');
@@ -91,7 +115,7 @@ class DownloadService {
       console.error('Download error:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : 'Erreur de téléchargement',
       };
     }
   }
@@ -100,6 +124,14 @@ class DownloadService {
     sermon: Sermon,
     onProgress?: (progress: number) => void
   ): Promise<DownloadResult> {
+    // Check if audio URL exists
+    if (!sermon.audio_url) {
+      return {
+        success: false,
+        error: 'Cette prédication n\'a pas de fichier audio disponible.',
+      };
+    }
+
     try {
       // Request permission for media library
       const { status } = await MediaLibrary.requestPermissionsAsync();
@@ -112,6 +144,8 @@ class DownloadService {
 
       const filename = this.generateFilename(sermon);
       const tempUri = `${FileSystem.documentDirectory}${filename}`;
+
+      console.log('Downloading to device from:', sermon.audio_url);
 
       const downloadResumable = FileSystem.createDownloadResumable(
         sermon.audio_url,
@@ -130,17 +164,33 @@ class DownloadService {
         throw new Error('Download failed - no result URI');
       }
 
-      // Save to media library
+      console.log('Downloaded to temp:', result.uri);
+
+      // Save to media library (Android only for audio)
       if (Platform.OS === 'android') {
-        const asset = await MediaLibrary.createAssetAsync(result.uri);
-        await MediaLibrary.createAlbumAsync('EMCR Church', asset, false);
+        try {
+          const asset = await MediaLibrary.createAssetAsync(result.uri);
+          await MediaLibrary.createAlbumAsync('EMCR Church', asset, false);
+          console.log('Saved to media library');
 
-        // Clean up temp file
-        await FileSystem.deleteAsync(result.uri, { idempotent: true });
+          // Clean up temp file
+          await FileSystem.deleteAsync(result.uri, { idempotent: true });
 
-        return { success: true, savedToDevice: true };
+          return { success: true, savedToDevice: true };
+        } catch (mediaError) {
+          console.error('MediaLibrary error:', mediaError);
+          // Keep file in temp location on error
+          return {
+            success: true,
+            localUri: result.uri,
+            savedToDevice: false,
+            error: 'Fichier téléchargé mais non ajouté à la bibliothèque',
+          };
+        }
       } else {
         // iOS: Keep file in documents directory (iOS doesn't allow saving audio to media library)
+        // But we can use Sharing to let user save it
+        console.log('iOS: File saved to documents directory');
         return {
           success: true,
           localUri: result.uri,
@@ -151,7 +201,7 @@ class DownloadService {
       console.error('Download to device error:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : 'Erreur de téléchargement',
       };
     }
   }

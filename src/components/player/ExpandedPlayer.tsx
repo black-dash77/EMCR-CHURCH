@@ -224,15 +224,7 @@ export function ExpandedPlayer() {
       });
 
       if (result.success) {
-        let message = '';
-        if (destination === 'app') {
-          message = `"${currentSermon.title}" est disponible hors ligne dans l'application.`;
-        } else if (destination === 'device') {
-          message = `"${currentSermon.title}" a été sauvegardé dans votre bibliothèque.`;
-        } else {
-          message = `"${currentSermon.title}" est disponible hors ligne et dans votre bibliothèque.`;
-        }
-
+        const message = `"${currentSermon.title}" est maintenant disponible hors ligne.\n\nRetrouvez vos téléchargements dans Plus → Téléchargements.`;
         Alert.alert('Téléchargement terminé', message, [{ text: 'OK' }]);
       } else {
         Alert.alert(
@@ -649,52 +641,24 @@ export function ExpandedPlayer() {
       <Modal
         visible={showDownloadMenu}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setShowDownloadMenu(false)}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setShowDownloadMenu(false)}>
-          <View style={[styles.optionsMenu, { paddingBottom: insets.bottom + 20 }]}>
-            <View style={styles.downloadHeader}>
-              <Text style={styles.downloadHeaderTitle}>Télécharger</Text>
-              <Pressable onPress={() => setShowDownloadMenu(false)} hitSlop={12}>
-                <X size={24} color="#888" />
-              </Pressable>
-            </View>
+        <Pressable style={styles.downloadModalOverlay} onPress={() => setShowDownloadMenu(false)}>
+          <View style={[styles.downloadModal, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={styles.downloadModalHandle} />
 
-            <View style={styles.optionsList}>
-              <Pressable
-                style={styles.optionItem}
-                onPress={() => handleDownload('app')}
-              >
-                <Smartphone size={24} color="#1DB954" />
-                <View style={styles.downloadOptionTextContainer}>
-                  <Text style={styles.optionText}>Dans l'application</Text>
-                  <Text style={styles.optionSubtext}>Écouter hors ligne dans l'app</Text>
-                </View>
-              </Pressable>
+            <Pressable
+              style={styles.downloadButton}
+              onPress={() => handleDownload('app')}
+            >
+              <Download size={22} color="#1DB954" />
+              <Text style={styles.downloadButtonText}>Écouter hors ligne</Text>
+            </Pressable>
 
-              <Pressable
-                style={styles.optionItem}
-                onPress={() => handleDownload('device')}
-              >
-                <HardDrive size={24} color="#fff" />
-                <View style={styles.downloadOptionTextContainer}>
-                  <Text style={styles.optionText}>Sur le téléphone</Text>
-                  <Text style={styles.optionSubtext}>Sauvegarder dans la bibliothèque</Text>
-                </View>
-              </Pressable>
-
-              <Pressable
-                style={styles.optionItem}
-                onPress={() => handleDownload('both')}
-              >
-                <Download size={24} color="#fff" />
-                <View style={styles.downloadOptionTextContainer}>
-                  <Text style={styles.optionText}>Les deux</Text>
-                  <Text style={styles.optionSubtext}>App + bibliothèque du téléphone</Text>
-                </View>
-              </Pressable>
-            </View>
+            <Text style={styles.downloadNote}>
+              Disponible dans Plus → Téléchargements
+            </Text>
           </View>
         </Pressable>
       </Modal>
@@ -787,7 +751,7 @@ function QueueItem({ sermon, onPress }: { sermon: Sermon; onPress: () => void })
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: '#000000',
   },
   scrollView: {
     flex: 1,
@@ -1142,13 +1106,13 @@ const styles = StyleSheet.create({
   // Options Menu Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'transparent',
     justifyContent: 'flex-end',
   },
   optionsMenu: {
-    backgroundColor: '#282828',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    backgroundColor: '#0d0d0d',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     padding: 20,
   },
   optionsHeader: {
@@ -1213,6 +1177,49 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
+  },
+  downloadModalOverlay: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    justifyContent: 'flex-end',
+  },
+  downloadModal: {
+    backgroundColor: '#1a1a1a',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    alignItems: 'center',
+  },
+  downloadModalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 2,
+    marginBottom: 20,
+  },
+  downloadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(29, 185, 84, 0.15)',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    gap: 12,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  downloadButtonText: {
+    color: '#1DB954',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  downloadNote: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 12,
+    textAlign: 'center',
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   optionSpeedIcon: {
     color: '#fff',

@@ -11,6 +11,7 @@ import {
   ImageIcon,
   Megaphone,
   AlertCircle,
+  Wifi,
 } from 'lucide-react-native';
 import { useEffect, useState, useCallback } from 'react';
 import {
@@ -43,6 +44,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [latestSermons, setLatestSermons] = useState<Sermon[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [latestAnnouncement, setLatestAnnouncement] = useState<Announcement | null>(null);
@@ -62,6 +64,8 @@ export default function HomeScreen() {
       setLatestAnnouncement(announcements[0] || null);
     } catch (error) {
       console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -145,6 +149,27 @@ export default function HomeScreen() {
             </Text>
           </View>
         </Animated.View>
+
+        {/* Empty State */}
+        {!loading && !featuredSermon && latestSermons.length === 0 && (
+          <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.emptyState}>
+            <View style={[styles.emptyIcon, { backgroundColor: themeColors.card }]}>
+              <Wifi size={40} color={themeColors.textTertiary} />
+            </View>
+            <Text style={[styles.emptyTitle, { color: themeColors.text }]}>
+              Bienvenue sur EMCR Church
+            </Text>
+            <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>
+              Les predications et evenements apparaitront ici des qu'ils seront disponibles.
+            </Text>
+            <Pressable
+              style={[styles.emptyButton, { backgroundColor: colors.primary[500] }]}
+              onPress={onRefresh}
+            >
+              <Text style={styles.emptyButtonText}>Actualiser</Text>
+            </Pressable>
+          </Animated.View>
+        )}
 
         {/* Featured Sermon */}
         {featuredSermon && (
@@ -813,5 +838,44 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',
+  },
+
+  // Empty State
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing[6],
+    paddingVertical: spacing[16],
+    gap: spacing[3],
+  },
+  emptyIcon: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing[2],
+  },
+  emptyTitle: {
+    ...typography.titleMedium,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  emptyText: {
+    ...typography.bodyMedium,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  emptyButton: {
+    marginTop: spacing[4],
+    paddingHorizontal: spacing[6],
+    paddingVertical: spacing[3],
+    borderRadius: borderRadius.full,
+  },
+  emptyButtonText: {
+    ...typography.labelLarge,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

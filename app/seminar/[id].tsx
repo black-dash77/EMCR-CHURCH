@@ -31,8 +31,8 @@ import {
 import Animated, { FadeInDown, FadeIn, FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AddToPlaylistModal } from '@/components/AddToPlaylistModal';
 import { AddSermonsToSeminarModal } from '@/components/AddSermonsToSeminarModal';
+import { AddToPlaylistModal } from '@/components/AddToPlaylistModal';
 import { seminarsApi } from '@/services/api';
 import { usePlayerStore } from '@/stores/usePlayerStore';
 import { useUserStore } from '@/stores/useUserStore';

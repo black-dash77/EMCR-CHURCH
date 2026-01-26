@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import {
   Search,
   Play,
-  Clock,
   X,
   Heart,
   ListMusic,
@@ -15,6 +14,7 @@ import {
   Shuffle,
   User,
   Plus,
+  Headphones,
 } from 'lucide-react-native';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
@@ -63,6 +63,7 @@ export default function SermonsScreen() {
   const [sermons, setSermons] = useState<Sermon[]>([]);
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [seminars, setSeminars] = useState<Seminar[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -85,6 +86,8 @@ export default function SermonsScreen() {
       setSeminars(seminarsData);
     } catch (error) {
       console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -100,8 +103,8 @@ export default function SermonsScreen() {
 
   // Filtered/computed data
   const recentSermons = useMemo(() => sermons.slice(0, 10), [sermons]);
-  const favoriteSermons = useMemo(() => getFavoriteSermons(sermons), [sermons, favorites]);
-  const historySermons = useMemo(() => getHistorySermons(sermons).slice(0, 10), [sermons, history]);
+  const favoriteSermons = useMemo(() => getFavoriteSermons(sermons), [sermons, favorites, getFavoriteSermons]);
+  const historySermons = useMemo(() => getHistorySermons(sermons).slice(0, 10), [sermons, history, getHistorySermons]);
 
   const speakersWithSermons = useMemo(() => {
     return speakers.map(speaker => ({
@@ -339,14 +342,35 @@ export default function SermonsScreen() {
           </Animated.View>
         </View>
 
-        {/* Quick Access Grid - Spotify style */}
+        {/* Quick Access Grid - Spotify style (toujours visible) */}
         {activeFilter === 'all' && (
           <Animated.View entering={FadeInDown.delay(200).duration(400)}>
             {renderQuickAccessGrid()}
           </Animated.View>
         )}
 
-        {/* Shuffle All Button */}
+        {/* Empty State - No sermons (apres les blocs rapides) */}
+        {!loading && sermons.length === 0 && activeFilter === 'all' && (
+          <Animated.View entering={FadeInDown.delay(250).duration(400)} style={styles.emptyStateContainer}>
+            <View style={[styles.emptyStateIcon, { backgroundColor: themeColors.card }]}>
+              <Headphones size={40} color={themeColors.textTertiary} />
+            </View>
+            <Text style={[styles.emptyStateTitle, { color: themeColors.text }]}>
+              Aucune predication
+            </Text>
+            <Text style={[styles.emptyStateDescription, { color: themeColors.textSecondary }]}>
+              Les predications apparaitront ici des qu'elles seront ajoutees.
+            </Text>
+            <Pressable
+              style={[styles.emptyStateButton, { backgroundColor: colors.primary[500] }]}
+              onPress={onRefresh}
+            >
+              <Text style={styles.emptyStateButtonText}>Actualiser</Text>
+            </Pressable>
+          </Animated.View>
+        )}
+
+        {/* Shuffle All Button - only show when we have sermons */}
         {activeFilter === 'all' && sermons.length > 0 && (
           <Animated.View entering={FadeInDown.delay(250).duration(400)} style={styles.shuffleSection}>
             <Pressable
@@ -360,7 +384,7 @@ export default function SermonsScreen() {
         )}
 
         {/* Content based on active filter */}
-        {activeFilter === 'all' && (
+        {activeFilter === 'all' && sermons.length > 0 && (
           <>
             {/* Recemment ecoutees */}
             {historySermons.length > 0 && (
@@ -457,17 +481,26 @@ export default function SermonsScreen() {
         {/* Recent filter - list view */}
         {activeFilter === 'recent' && (
           <Animated.View entering={FadeIn.duration(300)} style={styles.listSection}>
-            {sermons.map((sermon, index) => (
-              <SermonListItem
-                key={sermon.id}
-                sermon={sermon}
-                index={index}
-                themeColors={themeColors}
-                isPlaying={currentSermon?.id === sermon.id && isPlaying}
-                onPress={() => router.push(`/sermon/${sermon.id}`)}
-                onPlay={() => handlePlaySermon(sermon, sermons, index)}
-              />
-            ))}
+            {sermons.length > 0 ? (
+              sermons.map((sermon, index) => (
+                <SermonListItem
+                  key={sermon.id}
+                  sermon={sermon}
+                  index={index}
+                  themeColors={themeColors}
+                  isPlaying={currentSermon?.id === sermon.id && isPlaying}
+                  onPress={() => router.push(`/sermon/${sermon.id}`)}
+                  onPlay={() => handlePlaySermon(sermon, sermons, index)}
+                />
+              ))
+            ) : (
+              <View style={styles.emptyState}>
+                <Headphones size={48} color={themeColors.textTertiary} />
+                <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
+                  Aucune predication disponible
+                </Text>
+              </View>
+            )}
           </Animated.View>
         )}
 
@@ -500,34 +533,52 @@ export default function SermonsScreen() {
         {/* Speakers filter */}
         {activeFilter === 'speakers' && (
           <Animated.View entering={FadeIn.duration(300)} style={styles.speakersGrid}>
-            {speakersWithSermons.map((speaker, index) => (
-              <SpeakerGridCard
-                key={speaker.id}
-                speaker={speaker}
-                index={index}
-                themeColors={themeColors}
-                onPress={() => router.push(`/speaker/${speaker.id}`)}
-              />
-            ))}
+            {speakersWithSermons.length > 0 ? (
+              speakersWithSermons.map((speaker, index) => (
+                <SpeakerGridCard
+                  key={speaker.id}
+                  speaker={speaker}
+                  index={index}
+                  themeColors={themeColors}
+                  onPress={() => router.push(`/speaker/${speaker.id}`)}
+                />
+              ))
+            ) : (
+              <View style={styles.emptyState}>
+                <Mic2 size={48} color={themeColors.textTertiary} />
+                <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
+                  Aucun orateur disponible
+                </Text>
+              </View>
+            )}
           </Animated.View>
         )}
 
         {/* Seminars filter */}
         {activeFilter === 'seminars' && (
           <Animated.View entering={FadeIn.duration(300)} style={styles.listSection}>
-            {seminarsWithDetails.map((seminar, index) => (
-              <SeminarListItem
-                key={seminar.id}
-                seminar={seminar}
-                index={index}
-                themeColors={themeColors}
-                onPress={() => router.push(`/seminar/${seminar.id}`)}
-                onAddSermons={() => {
-                  setSelectedSeminar(seminar);
-                  setAddSermonsModalVisible(true);
-                }}
-              />
-            ))}
+            {seminarsWithDetails.length > 0 ? (
+              seminarsWithDetails.map((seminar, index) => (
+                <SeminarListItem
+                  key={seminar.id}
+                  seminar={seminar}
+                  index={index}
+                  themeColors={themeColors}
+                  onPress={() => router.push(`/seminar/${seminar.id}`)}
+                  onAddSermons={() => {
+                    setSelectedSeminar(seminar);
+                    setAddSermonsModalVisible(true);
+                  }}
+                />
+              ))
+            ) : (
+              <View style={styles.emptyState}>
+                <BookOpen size={48} color={themeColors.textTertiary} />
+                <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
+                  Aucun seminaire disponible
+                </Text>
+              </View>
+            )}
           </Animated.View>
         )}
       </ScrollView>
@@ -1260,6 +1311,43 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     ...typography.bodyMedium,
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing[6],
+    paddingVertical: spacing[16],
+    gap: spacing[3],
+  },
+  emptyStateIcon: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing[2],
+  },
+  emptyStateTitle: {
+    ...typography.titleMedium,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  emptyStateDescription: {
+    ...typography.bodyMedium,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  emptyStateButton: {
+    marginTop: spacing[4],
+    paddingHorizontal: spacing[6],
+    paddingVertical: spacing[3],
+    borderRadius: borderRadius.full,
+  },
+  emptyStateButtonText: {
+    ...typography.labelLarge,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 
   // Speaker Grid

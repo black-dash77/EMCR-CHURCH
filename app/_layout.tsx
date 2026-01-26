@@ -29,8 +29,13 @@ export default function RootLayout() {
   useEffect(() => {
     if (!notificationsEnabled) return;
 
+    let subscription: ReturnType<typeof AppState.addEventListener> | null = null;
+    let isMounted = true;
+
     const initNotifications = async () => {
       await notificationService.initialize();
+
+      if (!isMounted) return;
 
       // Listen for notification taps
       notificationService.addNotificationResponseListener((response) => {
@@ -41,21 +46,22 @@ export default function RootLayout() {
       });
 
       // Clear badge when app becomes active
-      const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
         if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
           notificationService.clearBadge();
         }
         appState.current = nextAppState;
       });
-
-      return () => {
-        subscription.remove();
-        notificationService.removeAllListeners();
-      };
     };
 
     initNotifications();
-  }, [notificationsEnabled]);
+
+    return () => {
+      isMounted = false;
+      subscription?.remove();
+      notificationService.removeAllListeners();
+    };
+  }, [notificationsEnabled, router]);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -201,6 +207,13 @@ export default function RootLayout() {
             />
             <Stack.Screen
               name="downloads"
+              options={{
+                presentation: 'card',
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="church-info"
               options={{
                 presentation: 'card',
                 animation: 'slide_from_right',

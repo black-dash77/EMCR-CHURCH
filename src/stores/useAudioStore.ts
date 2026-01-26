@@ -124,12 +124,13 @@ export const useAudioStore = create<AudioState>()(
         let useLocalFile = false;
         if (localUri) {
           try {
-            const fileInfo = await FileSystem.getInfoAsync(localUri, { size: true });
+            const fileInfo = await FileSystem.getInfoAsync(localUri);
+            const fileSize = (fileInfo as { size?: number }).size;
             // Check if file exists and has a reasonable size (at least 10KB)
-            if (fileInfo.exists && fileInfo.size && fileInfo.size > 10000) {
+            if (fileInfo.exists && fileSize && fileSize > 10000) {
               audioUrl = localUri;
               useLocalFile = true;
-              console.log('Using local file:', localUri, 'Size:', fileInfo.size);
+              console.log('Using local file:', localUri, 'Size:', fileSize);
             } else {
               // File doesn't exist or is too small (corrupted), clean up
               console.warn('Local file invalid or too small, removing download record');

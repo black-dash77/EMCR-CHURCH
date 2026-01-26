@@ -1,20 +1,8 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
-  Users,
-  Image as ImageIcon,
-  Mail,
-  Heart,
-  Clock,
-  Settings,
-  Moon,
   ChevronRight,
-  Music,
-  Info,
   Sparkles,
-  Mic,
-  FolderOpen,
-  ListMusic,
   Church,
   Shield,
   Download,
@@ -26,8 +14,6 @@ import {
   useColorScheme,
   ScrollView,
   Pressable,
-  Switch,
-  Dimensions,
 } from 'react-native';
 import Animated, {
   FadeInDown,
@@ -41,7 +27,6 @@ import { TAB_BAR_HEIGHT } from '@/components/TabBarBackground';
 import { TransparentHeaderBackground, HEADER_HEIGHT } from '@/components/TransparentHeaderBackground';
 import { colors, typography, spacing, borderRadius, ThemeColors } from '@/theme';
 
-const { width } = Dimensions.get('window');
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface MenuItem {

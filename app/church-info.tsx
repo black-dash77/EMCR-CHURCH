@@ -1,28 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  useColorScheme,
-  RefreshControl,
-  Pressable,
-  Image,
-  Linking,
-  Dimensions,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
-  interpolate,
-  Extrapolation,
-} from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import {
   ChevronLeft,
   Church,
@@ -42,8 +20,31 @@ import {
   ChevronRight,
   Sparkles,
 } from 'lucide-react-native';
-import { colors, typography, spacing, borderRadius } from '@/theme';
+import { useEffect, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  useColorScheme,
+  RefreshControl,
+  Pressable,
+  Image,
+  Linking,
+  Dimensions,
+} from 'react-native';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  interpolate,
+  Extrapolation,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { churchInfoApi } from '@/services/api';
+import { colors, typography, spacing, borderRadius } from '@/theme';
 import type { ChurchInfo } from '@/types';
 
 const { width, height } = Dimensions.get('window');

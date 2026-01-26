@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { AlertTriangle, Bell, Megaphone, ChevronRight, Calendar } from 'lucide-react-native';
+import { AlertTriangle, Megaphone, ChevronRight, Calendar } from 'lucide-react-native';
 import { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -10,7 +10,6 @@ import {
   useColorScheme,
   RefreshControl,
   Pressable,
-  Dimensions,
   Image,
 } from 'react-native';
 import Animated, {
@@ -27,7 +26,6 @@ import { announcementsApi } from '@/services/api';
 import { colors, typography, spacing, borderRadius, ThemeColors } from '@/theme';
 import type { Announcement } from '@/types';
 
-const { width } = Dimensions.get('window');
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function AnnouncementsScreen() {

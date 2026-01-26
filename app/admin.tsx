@@ -1,8 +1,9 @@
 import { decode } from 'base64-arraybuffer';
+import * as Crypto from 'expo-crypto';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
   Shield,
@@ -30,7 +31,6 @@ import {
   Search,
   Music,
   Check,
-  ChevronDown,
 } from 'lucide-react-native';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
@@ -48,7 +48,6 @@ import {
   Platform,
   RefreshControl,
   Image,
-  Switch,
 } from 'react-native';
 import Animated, {
   FadeInDown,
@@ -91,14 +90,42 @@ interface DataItem {
   name?: string;
   date?: string;
   created_at?: string;
-  speaker?: string;
+  speaker?: string | Speaker;
   speaker_id?: string;
   seminar_id?: string;
   audio_url?: string;
   cover_image?: string;
   duration?: string;
-  [key: string]: any;
+  description?: string;
+  content?: string;
+  bio?: string;
+  ministry?: string;
+  photo_url?: string;
+  image?: string;
+  url?: string;
+  caption?: string;
+  email?: string;
+  message?: string;
+  phone?: string;
+  download_url?: string;
+  year?: number;
+  is_active?: boolean;
+  [key: string]: string | number | boolean | Speaker | undefined;
 }
+
+// Password hashing - must match web admin (index-admin.html)
+// IMPORTANT: The password stored in admin_settings.password_hash must be
+// a SHA-256 hash of (password + SALT). Use the web admin to set up initial password.
+const SALT = 'emcr_salt_2024';
+
+const hashPassword = async (password: string): Promise<string> => {
+  const data = password + SALT;
+  const hash = await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    data
+  );
+  return hash;
+};
 
 // Storage bucket mapping
 const STORAGE_BUCKETS: Record<string, string> = {
@@ -217,7 +244,9 @@ export default function AdminScreen() {
         return;
       }
 
-      if (adminData?.password_hash === password) {
+      // Hash the input password and compare with stored hash
+      const inputHash = await hashPassword(password);
+      if (adminData?.password_hash === inputHash) {
         setIsAuthenticated(true);
         setPassword('');
       } else {
@@ -285,7 +314,7 @@ export default function AdminScreen() {
     const q = searchTerm.toLowerCase();
     return data.filter(item => {
       const title = item.title || item.name || item.caption || '';
-      const speaker = item.speaker || '';
+      const speaker = typeof item.speaker === 'string' ? item.speaker : '';
       return title.toLowerCase().includes(q) || speaker.toLowerCase().includes(q);
     });
   }, [data, searchTerm]);
@@ -420,8 +449,9 @@ export default function AdminScreen() {
 
         const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(fileName);
 
-        console.log('Audio uploaded successfully!');
-        console.log('Public URL:', publicUrl);
+        if (__DEV__) {
+          console.log('Audio uploaded successfully!');
+        }
 
         setFormData(prev => ({
           ...prev,
@@ -477,9 +507,10 @@ export default function AdminScreen() {
     try {
       const dataToSave = { ...formData };
 
-      // Debug: Log formData before saving
-      console.log('FormData before save:', JSON.stringify(formData, null, 2));
-      console.log('Audio URL in formData:', formData.audio_url);
+      // Debug: Log formData before saving (dev only)
+      if (__DEV__) {
+        console.log('FormData before save:', JSON.stringify(formData, null, 2));
+      }
 
       // Clean up data
       delete dataToSave.id;
@@ -504,10 +535,12 @@ export default function AdminScreen() {
         dataToSave.speaker_id = null;
       }
 
-      // Debug: Log data to be saved
-      console.log('Data to save:', JSON.stringify(dataToSave, null, 2));
+      // Debug: Log data to be saved (dev only)
+      if (__DEV__) {
+        console.log('Data to save:', JSON.stringify(dataToSave, null, 2));
+      }
 
-      let result;
+      let result: DataItem | null = null;
       if (editingItem) {
         // Update existing
         const { data: updatedItem, error } = await supabase
@@ -519,7 +552,6 @@ export default function AdminScreen() {
 
         if (error) throw error;
         result = updatedItem;
-        console.log('Updated result:', JSON.stringify(result, null, 2));
 
         // Update local data
         setData(prev => prev.map(item =>
@@ -536,8 +568,10 @@ export default function AdminScreen() {
         if (error) throw error;
         result = newItem;
 
-        setData(prev => [result, ...prev]);
-        setCounts(prev => ({ ...prev, [activeSection]: (prev[activeSection] || 0) + 1 }));
+        if (result) {
+          setData(prev => [result as DataItem, ...prev]);
+          setCounts(prev => ({ ...prev, [activeSection]: (prev[activeSection] || 0) + 1 }));
+        }
       }
 
       setShowFormModal(false);
@@ -564,15 +598,18 @@ export default function AdminScreen() {
   ];
 
   const getItemTitle = (item: DataItem): string => {
-    return item.title || item.name || item.subject || item.caption || 'Sans titre';
+    return item.title || item.name || (item as { subject?: string }).subject || item.caption || 'Sans titre';
   };
 
   const getItemSubtitle = (item: DataItem): string => {
-    if (activeSection === 'sermons' && item.speaker) return item.speaker;
+    if (activeSection === 'sermons' && item.speaker) {
+      return typeof item.speaker === 'string' ? item.speaker : '';
+    }
     if (item.date) return new Date(item.date).toLocaleDateString('fr-FR');
     if (item.created_at) return new Date(item.created_at).toLocaleDateString('fr-FR');
     if (item.email) return item.email;
-    if (item.role) return item.role;
+    const role = (item as { role?: string }).role;
+    if (role) return role;
     if (item.ministry) return item.ministry;
     return '';
   };
@@ -581,8 +618,8 @@ export default function AdminScreen() {
     if (activeSection === 'sermons') {
       if (item.date) return new Date(item.date).toLocaleDateString('fr-FR');
     }
-    if (activeSection === 'seminars' && item.speaker?.name) {
-      return item.speaker.name;
+    if (activeSection === 'seminars' && item.speaker && typeof item.speaker === 'object' && 'name' in item.speaker) {
+      return (item.speaker as { name: string }).name;
     }
     return '';
   };
@@ -1699,7 +1736,7 @@ export default function AdminScreen() {
                 Confirmer la suppression
               </Text>
               <Text style={[styles.modalMessage, { color: themeColors.textSecondary }]}>
-                Voulez-vous vraiment supprimer "{getItemTitle(itemToDelete || {})}" ?
+                Voulez-vous vraiment supprimer "{itemToDelete ? getItemTitle(itemToDelete) : ''}" ?
               </Text>
               <View style={styles.modalButtons}>
                 <Pressable

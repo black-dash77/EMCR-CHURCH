@@ -1,6 +1,7 @@
+import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Search, User, Mic, ChevronLeft, X } from 'lucide-react-native';
+import { Search, User, Mic, ChevronLeft, X, Plus, Camera } from 'lucide-react-native';
 import { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -12,6 +13,12 @@ import {
   Pressable,
   Image,
   TextInput,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +26,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TAB_BAR_HEIGHT } from '@/components/TabBarBackground';
 import { TransparentHeaderBackground, HEADER_HEIGHT } from '@/components/TransparentHeaderBackground';
 import { speakersApi } from '@/services/api';
+import { supabase } from '@/services/supabase';
 import { colors, typography, spacing, borderRadius, ThemeColors } from '@/theme';
 import type { Speaker } from '@/types';
 
@@ -36,6 +44,13 @@ export default function SpeakersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [addModalVisible, setAddModalVisible] = useState(false);
+  const [newSpeakerName, setNewSpeakerName] = useState('');
+  const [newSpeakerMinistry, setNewSpeakerMinistry] = useState('');
+  const [newSpeakerBio, setNewSpeakerBio] = useState('');
+  const [newSpeakerPhoto, setNewSpeakerPhoto] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const fetchSpeakers = useCallback(async () => {
     try {
@@ -70,6 +85,84 @@ export default function SpeakersScreen() {
     await fetchSpeakers();
     setRefreshing(false);
   }, [fetchSpeakers]);
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      await uploadImage(result.assets[0].uri);
+    }
+  };
+
+  const uploadImage = async (uri: string) => {
+    setIsUploading(true);
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+
+      const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileName = `speaker_${Date.now()}.${fileExt}`;
+      const filePath = `speakers/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('media')
+        .upload(filePath, blob, {
+          contentType: `image/${fileExt}`,
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('media')
+        .getPublicUrl(filePath);
+
+      setNewSpeakerPhoto(publicUrl);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      Alert.alert('Erreur', 'Impossible de telecharger l\'image');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleAddSpeaker = async () => {
+    if (!newSpeakerName.trim()) {
+      Alert.alert('Erreur', 'Le nom de l\'orateur est requis');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await speakersApi.create({
+        name: newSpeakerName.trim(),
+        ministry: newSpeakerMinistry.trim() || null,
+        bio: newSpeakerBio.trim() || null,
+        photo_url: newSpeakerPhoto,
+        social_links: null,
+      });
+
+      // Reset form and close modal
+      setNewSpeakerName('');
+      setNewSpeakerMinistry('');
+      setNewSpeakerBio('');
+      setNewSpeakerPhoto(null);
+      setAddModalVisible(false);
+
+      // Refresh list
+      await fetchSpeakers();
+    } catch (error) {
+      console.error('Error creating speaker:', error);
+      Alert.alert('Erreur', 'Impossible de creer l\'orateur');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const headerTotalHeight = HEADER_HEIGHT + insets.top + 80;
 
@@ -145,7 +238,12 @@ export default function SpeakersScreen() {
                 </Text>
               </Animated.View>
             </View>
-            <View style={{ width: 40 }} />
+            <Pressable
+              style={[styles.addButton, { backgroundColor: colors.primary[500] }]}
+              onPress={() => setAddModalVisible(true)}
+            >
+              <Plus size={20} color="#FFFFFF" />
+            </Pressable>
           </View>
 
           {/* Search */}
@@ -178,6 +276,142 @@ export default function SpeakersScreen() {
           </Animated.View>
         </View>
       </View>
+
+      {/* Add Speaker Modal */}
+      <Modal
+        visible={addModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setAddModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={[styles.modalContainer, { backgroundColor: themeColors.background }]}
+        >
+          {/* Modal Header */}
+          <View style={[styles.modalHeader, { borderBottomColor: themeColors.border }]}>
+            <Pressable
+              onPress={() => setAddModalVisible(false)}
+              style={styles.modalCloseButton}
+            >
+              <Text style={[styles.modalCloseText, { color: themeColors.textSecondary }]}>
+                Annuler
+              </Text>
+            </Pressable>
+            <Text style={[styles.modalTitle, { color: themeColors.text }]}>
+              Nouvel orateur
+            </Text>
+            <Pressable
+              onPress={handleAddSpeaker}
+              disabled={isSubmitting || !newSpeakerName.trim()}
+              style={[
+                styles.modalSaveButton,
+                { opacity: isSubmitting || !newSpeakerName.trim() ? 0.5 : 1 },
+              ]}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color={colors.primary[500]} />
+              ) : (
+                <Text style={[styles.modalSaveText, { color: colors.primary[500] }]}>
+                  Creer
+                </Text>
+              )}
+            </Pressable>
+          </View>
+
+          <ScrollView
+            style={styles.modalContent}
+            contentContainerStyle={styles.modalScrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Avatar picker */}
+            <Pressable style={styles.avatarSection} onPress={pickImage} disabled={isUploading}>
+              {newSpeakerPhoto ? (
+                <Image source={{ uri: newSpeakerPhoto }} style={styles.avatarPreview} />
+              ) : (
+                <View style={[styles.avatarPlaceholder, { backgroundColor: themeColors.card }]}>
+                  {isUploading ? (
+                    <ActivityIndicator size="large" color={colors.primary[500]} />
+                  ) : (
+                    <Camera size={32} color={themeColors.textTertiary} />
+                  )}
+                </View>
+              )}
+              <Text style={[styles.avatarHint, { color: colors.primary[500] }]}>
+                {newSpeakerPhoto ? 'Changer la photo' : 'Ajouter une photo'}
+              </Text>
+            </Pressable>
+
+            {/* Name Input */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: themeColors.text }]}>
+                Nom *
+              </Text>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  {
+                    backgroundColor: themeColors.card,
+                    color: themeColors.text,
+                    borderColor: themeColors.border,
+                  },
+                ]}
+                placeholder="Nom de l'orateur"
+                placeholderTextColor={themeColors.textTertiary}
+                value={newSpeakerName}
+                onChangeText={setNewSpeakerName}
+                autoFocus
+              />
+            </View>
+
+            {/* Ministry Input */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: themeColors.text }]}>
+                Ministere
+              </Text>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  {
+                    backgroundColor: themeColors.card,
+                    color: themeColors.text,
+                    borderColor: themeColors.border,
+                  },
+                ]}
+                placeholder="Ex: Pasteur, Evangeliste..."
+                placeholderTextColor={themeColors.textTertiary}
+                value={newSpeakerMinistry}
+                onChangeText={setNewSpeakerMinistry}
+              />
+            </View>
+
+            {/* Bio Input */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: themeColors.text }]}>
+                Biographie
+              </Text>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  styles.textArea,
+                  {
+                    backgroundColor: themeColors.card,
+                    color: themeColors.text,
+                    borderColor: themeColors.border,
+                  },
+                ]}
+                placeholder="Courte biographie..."
+                placeholderTextColor={themeColors.textTertiary}
+                value={newSpeakerBio}
+                onChangeText={setNewSpeakerBio}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -386,5 +620,89 @@ const styles = StyleSheet.create({
   emptyText: {
     ...typography.bodyMedium,
     textAlign: 'center',
+  },
+  addButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[4],
+    borderBottomWidth: 1,
+  },
+  modalCloseButton: {
+    padding: spacing[1],
+  },
+  modalCloseText: {
+    ...typography.bodyMedium,
+  },
+  modalTitle: {
+    ...typography.titleMedium,
+    fontWeight: '600',
+  },
+  modalSaveButton: {
+    padding: spacing[1],
+  },
+  modalSaveText: {
+    ...typography.bodyMedium,
+    fontWeight: '600',
+  },
+  modalContent: {
+    flex: 1,
+  },
+  modalScrollContent: {
+    padding: spacing[4],
+  },
+  avatarSection: {
+    alignItems: 'center',
+    marginBottom: spacing[6],
+  },
+  avatarPlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing[2],
+  },
+  avatarPreview: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: spacing[2],
+  },
+  avatarHint: {
+    ...typography.labelMedium,
+    fontWeight: '500',
+  },
+  inputGroup: {
+    marginBottom: spacing[4],
+  },
+  inputLabel: {
+    ...typography.labelMedium,
+    fontWeight: '600',
+    marginBottom: spacing[2],
+  },
+  textInput: {
+    ...typography.bodyMedium,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+  },
+  textArea: {
+    minHeight: 100,
+    paddingTop: spacing[3],
   },
 });
