@@ -21,6 +21,9 @@ import {
   Heart,
   ListPlus,
   X,
+  Download,
+  CheckCircle,
+  HardDrive,
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
@@ -33,6 +36,7 @@ import {
   StatusBar,
   ScrollView,
   Modal,
+  Alert,
 } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -45,7 +49,9 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { speakersApi } from '@/services/api';
+import { downloadService, DownloadDestination } from '@/services/downloadService';
 import { useAudioStore } from '@/stores/useAudioStore';
+import { useDownloadStore } from '@/stores/useDownloadStore';
 import { useUserStore } from '@/stores/useUserStore';
 import { colors } from '@/theme';
 import type { PlaybackRate, Speaker, Sermon } from '@/types';
@@ -65,6 +71,9 @@ export function ExpandedPlayer() {
   const [speakerSermons, setSpeakerSermons] = useState<Sermon[]>([]);
   const [isFollowing, setIsFollowing] = useState(true);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
   const scrollY = useSharedValue(0);
 
   const { toggleFavorite, isFavorite } = useUserStore();
@@ -89,6 +98,10 @@ export function ExpandedPlayer() {
     setSleepTimer,
     playSermon,
   } = useAudioStore();
+
+  const { isDownloaded, activeDownloads } = useDownloadStore();
+  const isCurrentDownloaded = currentSermon ? isDownloaded(currentSermon.id) : false;
+  const currentDownloadProgress = currentSermon ? activeDownloads[currentSermon.id] : null;
 
   // Fetch speaker info and their sermons
   useEffect(() => {
@@ -187,6 +200,57 @@ export function ExpandedPlayer() {
       });
     } catch (_error) {
       console.error('Error sharing');
+    }
+  };
+
+  const handleDownloadPress = () => {
+    if (!currentSermon?.audio_url) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowOptionsMenu(false);
+    setShowDownloadMenu(true);
+  };
+
+  const handleDownload = async (destination: DownloadDestination) => {
+    if (!currentSermon?.audio_url) return;
+
+    setShowDownloadMenu(false);
+    setIsDownloading(true);
+    setDownloadProgress(0);
+
+    try {
+      const result = await downloadService.download(currentSermon, {
+        destination,
+        onProgress: setDownloadProgress,
+      });
+
+      if (result.success) {
+        let message = '';
+        if (destination === 'app') {
+          message = `"${currentSermon.title}" est disponible hors ligne dans l'application.`;
+        } else if (destination === 'device') {
+          message = `"${currentSermon.title}" a été sauvegardé dans votre bibliothèque.`;
+        } else {
+          message = `"${currentSermon.title}" est disponible hors ligne et dans votre bibliothèque.`;
+        }
+
+        Alert.alert('Téléchargement terminé', message, [{ text: 'OK' }]);
+      } else {
+        Alert.alert(
+          'Erreur de téléchargement',
+          result.error || 'Une erreur est survenue. Veuillez réessayer.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      Alert.alert(
+        'Erreur de téléchargement',
+        'Une erreur est survenue lors du téléchargement. Veuillez réessayer.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsDownloading(false);
+      setDownloadProgress(0);
     }
   };
 
@@ -507,6 +571,28 @@ export function ExpandedPlayer() {
                 <Text style={styles.optionText}>Partager</Text>
               </Pressable>
 
+              <Pressable
+                style={styles.optionItem}
+                onPress={handleDownloadPress}
+                disabled={isDownloading || currentDownloadProgress?.status === 'downloading'}
+              >
+                {isCurrentDownloaded ? (
+                  <CheckCircle size={24} color="#1DB954" />
+                ) : (
+                  <Download
+                    size={24}
+                    color={isDownloading || currentDownloadProgress?.status === 'downloading' ? '#1DB954' : '#fff'}
+                  />
+                )}
+                <Text style={styles.optionText}>
+                  {isDownloading || currentDownloadProgress?.status === 'downloading'
+                    ? `Téléchargement... ${Math.round((currentDownloadProgress?.progress || downloadProgress) * 100)}%`
+                    : isCurrentDownloaded
+                      ? 'Déjà téléchargé'
+                      : 'Télécharger l\'audio'}
+                </Text>
+              </Pressable>
+
               {speaker && (
                 <Pressable
                   style={styles.optionItem}
@@ -553,6 +639,60 @@ export function ExpandedPlayer() {
                 <Text style={styles.optionText}>
                   Minuterie {sleepTimerRemaining ? `(${formatSleepTimer(sleepTimerRemaining)})` : ''}
                 </Text>
+              </Pressable>
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Download Options Modal */}
+      <Modal
+        visible={showDownloadMenu}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowDownloadMenu(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowDownloadMenu(false)}>
+          <View style={[styles.optionsMenu, { paddingBottom: insets.bottom + 20 }]}>
+            <View style={styles.downloadHeader}>
+              <Text style={styles.downloadHeaderTitle}>Télécharger</Text>
+              <Pressable onPress={() => setShowDownloadMenu(false)} hitSlop={12}>
+                <X size={24} color="#888" />
+              </Pressable>
+            </View>
+
+            <View style={styles.optionsList}>
+              <Pressable
+                style={styles.optionItem}
+                onPress={() => handleDownload('app')}
+              >
+                <Smartphone size={24} color="#1DB954" />
+                <View style={styles.downloadOptionTextContainer}>
+                  <Text style={styles.optionText}>Dans l'application</Text>
+                  <Text style={styles.optionSubtext}>Écouter hors ligne dans l'app</Text>
+                </View>
+              </Pressable>
+
+              <Pressable
+                style={styles.optionItem}
+                onPress={() => handleDownload('device')}
+              >
+                <HardDrive size={24} color="#fff" />
+                <View style={styles.downloadOptionTextContainer}>
+                  <Text style={styles.optionText}>Sur le téléphone</Text>
+                  <Text style={styles.optionSubtext}>Sauvegarder dans la bibliothèque</Text>
+                </View>
+              </Pressable>
+
+              <Pressable
+                style={styles.optionItem}
+                onPress={() => handleDownload('both')}
+              >
+                <Download size={24} color="#fff" />
+                <View style={styles.downloadOptionTextContainer}>
+                  <Text style={styles.optionText}>Les deux</Text>
+                  <Text style={styles.optionSubtext}>App + bibliothèque du téléphone</Text>
+                </View>
               </Pressable>
             </View>
           </View>
@@ -1051,6 +1191,28 @@ const styles = StyleSheet.create({
   optionText: {
     color: '#fff',
     fontSize: 16,
+  },
+  optionSubtext: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 13,
+    marginTop: 2,
+  },
+  downloadOptionTextContainer: {
+    flex: 1,
+  },
+  downloadHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+    marginBottom: 8,
+  },
+  downloadHeaderTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
   },
   optionSpeedIcon: {
     color: '#fff',

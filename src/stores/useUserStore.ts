@@ -72,7 +72,7 @@ export const useUserStore = create<UserState>()(
       // Initial state
       firstName: '',
       lastName: '',
-      hasCompletedOnboarding: false,
+      hasCompletedOnboarding: true,
       favorites: [],
       playlists: [],
       history: [],

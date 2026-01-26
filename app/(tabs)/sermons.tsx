@@ -14,6 +14,7 @@ import {
   BookOpen,
   Shuffle,
   User,
+  Plus,
 } from 'lucide-react-native';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
@@ -32,6 +33,7 @@ import {
 import Animated, { FadeIn, FadeInDown, FadeInRight, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AddSermonsToSeminarModal } from '@/components/AddSermonsToSeminarModal';
 import { TAB_BAR_HEIGHT } from '@/components/TabBarBackground';
 import { sermonsApi, speakersApi, seminarsApi } from '@/services/api';
 import { useAudioStore } from '@/stores/useAudioStore';
@@ -65,6 +67,8 @@ export default function SermonsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [addSermonsModalVisible, setAddSermonsModalVisible] = useState(false);
+  const [selectedSeminar, setSelectedSeminar] = useState<Seminar | null>(null);
 
   const { setQueue, currentSermon, isPlaying } = useAudioStore();
   const { favorites, playlists, history, getHistorySermons, getFavoriteSermons } = useUserStore();
@@ -249,6 +253,7 @@ export default function SermonsScreen() {
               isPlaying={currentSermon?.id === item.id && isPlaying}
               onPress={() => router.push(`/sermon/${item.id}`)}
               onPlay={() => handlePlaySermon(item, searchQuery ? searchResults : sermons, index)}
+              variant="flat"
             />
           )}
           ListEmptyComponent={
@@ -517,11 +522,27 @@ export default function SermonsScreen() {
                 index={index}
                 themeColors={themeColors}
                 onPress={() => router.push(`/seminar/${seminar.id}`)}
+                onAddSermons={() => {
+                  setSelectedSeminar(seminar);
+                  setAddSermonsModalVisible(true);
+                }}
               />
             ))}
           </Animated.View>
         )}
       </ScrollView>
+
+      {/* Add Sermons to Seminar Modal */}
+      <AddSermonsToSeminarModal
+        visible={addSermonsModalVisible}
+        onClose={() => {
+          setAddSermonsModalVisible(false);
+          setSelectedSeminar(null);
+        }}
+        seminarId={selectedSeminar?.id || ''}
+        seminarName={selectedSeminar?.name}
+        onSermonsUpdated={fetchData}
+      />
     </View>
   );
 }
@@ -764,6 +785,7 @@ function SermonListItem({
   isPlaying,
   onPress,
   onPlay,
+  variant = 'card',
 }: {
   sermon: Sermon;
   index: number;
@@ -771,6 +793,7 @@ function SermonListItem({
   isPlaying: boolean;
   onPress: () => void;
   onPlay: () => void;
+  variant?: 'card' | 'flat';
 }) {
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({
@@ -783,10 +806,16 @@ function SermonListItem({
     return `${mins} min`;
   };
 
+  const isFlat = variant === 'flat';
+
   return (
     <Animated.View entering={FadeInDown.delay(index * 40).duration(300)}>
       <AnimatedPressable
-        style={[styles.sermonListItem, { backgroundColor: themeColors.card }, animatedStyle]}
+        style={[
+          isFlat ? styles.sermonListItemFlat : styles.sermonListItem,
+          !isFlat && { backgroundColor: themeColors.card },
+          animatedStyle,
+        ]}
         onPressIn={() => { scale.value = withSpring(0.98); }}
         onPressOut={() => { scale.value = withSpring(1); }}
         onPress={onPress}
@@ -815,6 +844,7 @@ function SermonListItem({
           </Text>
         </View>
       </AnimatedPressable>
+      {isFlat && <View style={[styles.sermonDivider, { backgroundColor: themeColors.border }]} />}
     </Animated.View>
   );
 }
@@ -871,11 +901,13 @@ function SeminarListItem({
   index,
   themeColors,
   onPress,
+  onAddSermons,
 }: {
   seminar: Seminar & { sermons: Sermon[] };
   index: number;
   themeColors: ThemeColors;
   onPress: () => void;
+  onAddSermons?: () => void;
 }) {
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({
@@ -911,6 +943,17 @@ function SeminarListItem({
             {seminar.speaker && ` • ${seminar.speaker.name}`}
           </Text>
         </View>
+        {onAddSermons && (
+          <Pressable
+            style={[styles.seminarAddButton, { backgroundColor: colors.primary[500] }]}
+            onPress={(e) => {
+              e.stopPropagation();
+              onAddSermons();
+            }}
+          >
+            <Plus size={16} color="#FFFFFF" />
+          </Pressable>
+        )}
         <ChevronRight size={18} color={themeColors.textTertiary} />
       </AnimatedPressable>
     </Animated.View>
@@ -1170,6 +1213,16 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     gap: spacing[3],
   },
+  sermonListItemFlat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing[3],
+    gap: spacing[3],
+  },
+  sermonDivider: {
+    height: 1,
+    marginLeft: 56 + spacing[3],
+  },
   sermonCover: {
     width: 56,
     height: 56,
@@ -1267,5 +1320,13 @@ const styles = StyleSheet.create({
   seminarListMeta: {
     ...typography.labelSmall,
     marginTop: 2,
+  },
+  seminarAddButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing[2],
   },
 });

@@ -14,3 +14,6 @@ export { FilterChip, ActiveFilters } from './FilterChip';
 
 // Playlist components
 export { AddToPlaylistModal } from './AddToPlaylistModal';
+export { AddSermonsModal } from './AddSermonsModal';
+export { AddSermonsToSeminarModal } from './AddSermonsToSeminarModal';
+export { CreateSeminarModal } from './CreateSeminarModal';

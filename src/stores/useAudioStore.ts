@@ -1,9 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AVPlaybackStatus } from 'expo-av';
+import * as FileSystem from 'expo-file-system';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
 import { audioService } from '@/services/audioService';
+import { useDownloadStore } from '@/stores/useDownloadStore';
 import type { Sermon, RepeatMode, PlaybackRate } from '@/types';
 
 interface AudioState {
@@ -16,6 +18,7 @@ interface AudioState {
 
   // Player visibility (can be hidden while audio plays)
   isPlayerHidden: boolean;
+  isPlayerCompletelyHidden: boolean; // Hides both mini player AND floating button
 
   // Settings
   playbackRate: PlaybackRate;
@@ -59,6 +62,7 @@ interface AudioState {
   handlePlaybackStatusUpdate: (status: AVPlaybackStatus) => void;
   hidePlayer: () => void;
   showPlayer: () => void;
+  hidePlayerCompletely: () => void;
 }
 
 const shuffleArray = <T>(array: T[]): T[] => {
@@ -80,6 +84,7 @@ export const useAudioStore = create<AudioState>()(
       currentTime: 0,
       duration: 0,
       isPlayerHidden: false,
+      isPlayerCompletelyHidden: false,
       playbackRate: 1,
       volume: 1,
       repeatMode: 'off',
@@ -94,7 +99,7 @@ export const useAudioStore = create<AudioState>()(
       playSermon: async (sermon, addToQueue = true) => {
         const { playbackPositions, playbackRate, volume, queue } = get();
 
-        set({ isLoading: true, currentSermon: sermon, isPlayerHidden: false });
+        set({ isLoading: true, currentSermon: sermon, isPlayerHidden: false, isPlayerCompletelyHidden: false });
 
         // Setup status callback
         audioService.setStatusCallback(get().handlePlaybackStatusUpdate);
@@ -103,8 +108,41 @@ export const useAudioStore = create<AudioState>()(
         const savedPosition = playbackPositions[sermon.id] || 0;
         const startPositionMs = savedPosition * 1000;
 
+        // Check if sermon has a valid audio URL
+        if (!sermon.audio_url) {
+          console.error('Sermon has no audio URL:', sermon.id, sermon.title);
+          set({ isLoading: false, isPlaying: false });
+          return;
+        }
+
+        // Check if sermon is downloaded locally for offline playback
+        const downloadStore = useDownloadStore.getState();
+        const localUri = downloadStore.getLocalUri(sermon.id);
+
+        // Verify local file exists and has valid size before using it
+        let audioUrl = sermon.audio_url;
+        let useLocalFile = false;
+        if (localUri) {
+          try {
+            const fileInfo = await FileSystem.getInfoAsync(localUri, { size: true });
+            // Check if file exists and has a reasonable size (at least 10KB)
+            if (fileInfo.exists && fileInfo.size && fileInfo.size > 10000) {
+              audioUrl = localUri;
+              useLocalFile = true;
+              console.log('Using local file:', localUri, 'Size:', fileInfo.size);
+            } else {
+              // File doesn't exist or is too small (corrupted), clean up
+              console.warn('Local file invalid or too small, removing download record');
+              await downloadStore.removeDownload(sermon.id);
+            }
+          } catch (e) {
+            // If we can't check, use the remote URL
+            console.warn('Could not verify local file, using remote URL:', e);
+          }
+        }
+
         try {
-          await audioService.loadAudio(sermon.audio_url, startPositionMs);
+          await audioService.loadAudio(audioUrl, startPositionMs);
           await audioService.setPlaybackRate(playbackRate);
           await audioService.setVolume(volume);
 
@@ -125,6 +163,30 @@ export const useAudioStore = create<AudioState>()(
           set({ isLoading: false, isPlaying: true });
         } catch (error) {
           console.error('Failed to play sermon:', error);
+          console.error('Audio URL attempted:', audioUrl);
+
+          // If local file failed, try remote URL as fallback
+          if (useLocalFile && sermon.audio_url) {
+            console.log('Local file failed, cleaning up and retrying with remote URL...');
+            // Clean up the corrupted download
+            try {
+              await downloadStore.removeDownload(sermon.id);
+            } catch (e) {
+              console.warn('Failed to remove download record:', e);
+            }
+
+            try {
+              console.log('Retrying with remote URL:', sermon.audio_url);
+              await audioService.loadAudio(sermon.audio_url, startPositionMs);
+              await audioService.setPlaybackRate(playbackRate);
+              await audioService.setVolume(volume);
+              set({ isLoading: false, isPlaying: true });
+              return;
+            } catch (fallbackError) {
+              console.error('Remote URL also failed:', fallbackError);
+            }
+          }
+
           set({ isLoading: false, isPlaying: false });
         }
       },
@@ -403,7 +465,11 @@ export const useAudioStore = create<AudioState>()(
       },
 
       showPlayer: () => {
-        set({ isPlayerHidden: false });
+        set({ isPlayerHidden: false, isPlayerCompletelyHidden: false });
+      },
+
+      hidePlayerCompletely: () => {
+        set({ isPlayerHidden: true, isPlayerCompletelyHidden: true });
       },
     }),
     {

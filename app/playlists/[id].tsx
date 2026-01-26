@@ -11,6 +11,8 @@ import {
   MoreVertical,
   Music,
   GripVertical,
+  ListPlus,
+  Plus,
 } from 'lucide-react-native';
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -27,6 +29,7 @@ import {
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AddToPlaylistModal, AddSermonsModal } from '@/components';
 import { sermonsApi } from '@/services/api';
 import { usePlayerStore } from '@/stores/usePlayerStore';
 import { useUserStore } from '@/stores/useUserStore';
@@ -51,6 +54,9 @@ export default function PlaylistDetailScreen() {
   const [sermons, setSermons] = useState<Sermon[]>([]);
   const [loading, setLoading] = useState(true);
   const [menuSermon, setMenuSermon] = useState<Sermon | null>(null);
+  const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
+  const [selectedSermonForPlaylist, setSelectedSermonForPlaylist] = useState<Sermon | null>(null);
+  const [addSermonsModalVisible, setAddSermonsModalVisible] = useState(false);
 
   useEffect(() => {
     const foundPlaylist = playlists.find((p) => p.id === id);
@@ -135,6 +141,12 @@ export default function PlaylistDetailScreen() {
         },
       ]
     );
+  };
+
+  const handleAddToPlaylist = (sermon: Sermon) => {
+    setSelectedSermonForPlaylist(sermon);
+    setMenuSermon(null);
+    setPlaylistModalVisible(true);
   };
 
   if (!playlist) {
@@ -248,6 +260,28 @@ export default function PlaylistDetailScreen() {
           </Animated.View>
         )}
 
+        {/* Add Button */}
+        <Animated.View
+          entering={FadeInDown.delay(150).duration(400).springify()}
+          style={styles.addButtonContainer}
+        >
+          <Pressable
+            style={({ pressed }) => [
+              styles.addButton,
+              {
+                backgroundColor: themeColors.card,
+                opacity: pressed ? 0.8 : 1,
+              },
+            ]}
+            onPress={() => setAddSermonsModalVisible(true)}
+          >
+            <Plus size={20} color={colors.primary[500]} />
+            <Text style={[styles.addButtonText, { color: themeColors.text }]}>
+              Ajouter des predications
+            </Text>
+          </Pressable>
+        </Animated.View>
+
         {/* Sermons List */}
         <View style={styles.sermonsContainer}>
           {sermons.length === 0 && !loading ? (
@@ -260,7 +294,7 @@ export default function PlaylistDetailScreen() {
                 Cette playlist est vide
               </Text>
               <Text style={[styles.emptySubtext, { color: themeColors.textTertiary }]}>
-                Ajoutez des predications depuis leur page de detail
+                Appuyez sur le bouton ci-dessus pour ajouter des predications
               </Text>
             </Animated.View>
           ) : (
@@ -374,6 +408,16 @@ export default function PlaylistDetailScreen() {
 
             <Pressable
               style={styles.menuItem}
+              onPress={() => handleAddToPlaylist(menuSermon)}
+            >
+              <ListPlus size={20} color={themeColors.text} />
+              <Text style={[styles.menuItemText, { color: themeColors.text }]}>
+                Ajouter a une playlist
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.menuItem}
               onPress={() => handleRemoveFromPlaylist(menuSermon)}
             >
               <Trash2 size={20} color={colors.semantic.error} />
@@ -384,6 +428,25 @@ export default function PlaylistDetailScreen() {
           </Animated.View>
         </View>
       )}
+
+      {/* Add to Playlist Modal */}
+      <AddToPlaylistModal
+        visible={playlistModalVisible}
+        onClose={() => {
+          setPlaylistModalVisible(false);
+          setSelectedSermonForPlaylist(null);
+        }}
+        sermonId={selectedSermonForPlaylist?.id || ''}
+        sermonTitle={selectedSermonForPlaylist?.title}
+      />
+
+      {/* Add Sermons Modal */}
+      <AddSermonsModal
+        visible={addSermonsModalVisible}
+        onClose={() => setAddSermonsModalVisible(false)}
+        playlistId={id || ''}
+        playlistName={playlist?.name}
+      />
     </View>
   );
 }
@@ -494,6 +557,22 @@ const styles = StyleSheet.create({
   },
   playAllText: {
     color: '#FFFFFF',
+    ...typography.labelLarge,
+    fontWeight: '600',
+  },
+  addButtonContainer: {
+    paddingHorizontal: spacing[4],
+    marginBottom: spacing[3],
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[2],
+    paddingVertical: spacing[3],
+    borderRadius: borderRadius.xl,
+  },
+  addButtonText: {
     ...typography.labelLarge,
     fontWeight: '600',
   },

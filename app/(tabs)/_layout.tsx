@@ -41,7 +41,7 @@ function TabIcon({
 }
 
 function FloatingPlayButton() {
-  const { currentSermon, isPlayerHidden, isPlaying, showPlayer, togglePlayPause } = useAudioStore();
+  const { currentSermon, isPlayerHidden, isPlayerCompletelyHidden, isPlaying, showPlayer, togglePlayPause } = useAudioStore();
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -58,7 +58,8 @@ function FloatingPlayButton() {
     await togglePlayPause();
   };
 
-  if (!currentSermon || !isPlayerHidden) return null;
+  // Don't show if no sermon, player is visible, or player is completely hidden
+  if (!currentSermon || !isPlayerHidden || isPlayerCompletelyHidden) return null;
 
   return (
     <Animated.View
@@ -161,6 +162,7 @@ export default function TabLayout() {
           name="events"
           options={{
             title: 'Événements',
+            href: null, // Caché - disponible dans Prédications
             tabBarIcon: ({ color, focused }) => (
               <TabIcon Icon={Calendar} color={color} focused={focused} />
             ),
@@ -170,6 +172,7 @@ export default function TabLayout() {
           name="announcements"
           options={{
             title: 'Annonces',
+            href: null, // Caché - disponible dans Prédications
             tabBarIcon: ({ color, focused }) => (
               <TabIcon Icon={Bell} color={color} focused={focused} />
             ),

@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { notificationService, getDeepLinkFromNotification } from '@/services/notificationService';
+import { useDownloadStore } from '@/stores/useDownloadStore';
 import { useUserStore } from '@/stores/useUserStore';
 import { colors } from '@/theme';
 
@@ -17,9 +18,8 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
-  const { notificationsEnabled, hasCompletedOnboarding } = useUserStore();
+  const { notificationsEnabled } = useUserStore();
   const appState = useRef(AppState.currentState);
-  const hasCheckedOnboarding = useRef(false);
 
   const [fontsLoaded] = useFonts({
     // Add custom fonts here if needed
@@ -60,16 +60,13 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();
-
-      // Check onboarding status after splash screen hides
-      if (!hasCheckedOnboarding.current && !hasCompletedOnboarding) {
-        hasCheckedOnboarding.current = true;
-        setTimeout(() => {
-          router.replace('/onboarding');
-        }, 100);
-      }
     }
-  }, [fontsLoaded, hasCompletedOnboarding]);
+  }, [fontsLoaded]);
+
+  // Verify downloaded files on startup (clean orphaned records)
+  useEffect(() => {
+    useDownloadStore.getState().verifyDownloads();
+  }, []);
 
   if (!fontsLoaded) {
     return null;
@@ -89,13 +86,6 @@ export default function RootLayout() {
               animation: 'slide_from_right',
             }}
           >
-            <Stack.Screen
-              name="onboarding"
-              options={{
-                headerShown: false,
-                animation: 'fade',
-              }}
-            />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen
               name="sermon/[id]"
@@ -207,6 +197,13 @@ export default function RootLayout() {
               options={{
                 presentation: 'fullScreenModal',
                 animation: 'slide_from_bottom',
+              }}
+            />
+            <Stack.Screen
+              name="downloads"
+              options={{
+                presentation: 'card',
+                animation: 'slide_from_right',
               }}
             />
           </Stack>

@@ -16,6 +16,8 @@ import {
   FolderOpen,
   ListMusic,
   Church,
+  Shield,
+  Download,
 } from 'lucide-react-native';
 import {
   View,
@@ -71,115 +73,49 @@ export default function MoreScreen() {
           route: '/church-info',
         },
         {
-          icon: <Mic size={20} color="#FFFFFF" />,
-          iconBg: '#059669',
-          label: 'Orateurs',
-          description: 'Nos predicateurs',
-          route: '/speakers',
-        },
-        {
-          icon: <FolderOpen size={20} color="#FFFFFF" />,
-          iconBg: '#D97706',
-          label: 'Seminaires',
-          description: 'Series de predications',
-          route: '/seminars',
-        },
-        {
-          icon: <Users size={20} color="#FFFFFF" />,
-          iconBg: colors.primary[500],
-          label: 'Membres',
-          description: 'Equipe dirigeante et ministeres',
-          route: '/members',
-        },
-        {
-          icon: <ImageIcon size={20} color="#FFFFFF" />,
-          iconBg: '#8B5CF6',
-          label: 'Medias',
-          description: 'Photos et videos',
-          route: '/media',
-        },
-        {
-          icon: <Mail size={20} color="#FFFFFF" />,
+          icon: <Download size={20} color="#FFFFFF" />,
           iconBg: '#10B981',
-          label: 'Contact',
-          description: 'Nous contacter',
-          route: '/contact',
+          label: 'Téléchargements',
+          description: 'Écouter hors ligne',
+          route: '/downloads',
         },
       ],
     },
     {
-      title: 'Ma Bibliotheque',
+      title: 'Administration',
       items: [
         {
-          icon: <Heart size={20} color="#FFFFFF" />,
-          iconBg: '#EF4444',
-          label: 'Favoris',
-          description: 'Mes predications favorites',
-          route: '/favorites',
-        },
-        {
-          icon: <ListMusic size={20} color="#FFFFFF" />,
-          iconBg: '#8B5CF6',
-          label: 'Mes Playlists',
-          description: 'Listes de lecture personnelles',
-          route: '/playlists',
-        },
-        {
-          icon: <Clock size={20} color="#FFFFFF" />,
-          iconBg: '#F59E0B',
-          label: 'Historique',
-          description: 'Predications ecoutees',
-          route: '/history',
-        },
-        {
-          icon: <Music size={20} color="#FFFFFF" />,
-          iconBg: '#06B6D4',
-          label: 'File d\'attente',
-          description: 'Prochaines predications',
-          route: '/queue',
+          icon: <Shield size={20} color="#FFFFFF" />,
+          iconBg: '#3B82F6',
+          label: 'Admin',
+          description: 'Panneau d\'administration',
+          route: '/admin',
         },
       ],
     },
-    {
-      title: 'Préférences',
-      items: [
-        {
-          icon: <Moon size={20} color="#FFFFFF" />,
-          iconBg: '#6366F1',
-          label: 'Mode sombre',
-          description: isDark ? 'Activé' : 'Désactivé',
-          rightElement: (
-            <Switch
-              value={isDark}
-              trackColor={{
-                false: themeColors.border,
-                true: colors.primary[500],
-              }}
-              thumbColor="#FFFFFF"
-              disabled
-            />
-          ),
-        },
-        {
-          icon: <Settings size={20} color="#FFFFFF" />,
-          iconBg: '#64748B',
-          label: 'Paramètres',
-          description: 'Notifications, lecture audio',
-          route: '/settings',
-        },
-      ],
-    },
-    {
-      title: 'À propos',
-      items: [
-        {
-          icon: <Info size={20} color="#FFFFFF" />,
-          iconBg: '#EC4899',
-          label: 'À propos de l\'application',
-          description: 'Version 1.0.0',
-        },
-      ],
-    },
+    // Sections masquées - fonctionnalités disponibles dans Prédications
+    // {
+    //   title: 'Ma Bibliotheque',
+    //   items: [
+    //     { icon: <Heart size={20} color="#FFFFFF" />, iconBg: '#EF4444', label: 'Favoris', description: 'Mes predications favorites', route: '/favorites' },
+    //     { icon: <ListMusic size={20} color="#FFFFFF" />, iconBg: '#8B5CF6', label: 'Mes Playlists', description: 'Listes de lecture personnelles', route: '/playlists' },
+    //     { icon: <Clock size={20} color="#FFFFFF" />, iconBg: '#F59E0B', label: 'Historique', description: 'Predications ecoutees', route: '/history' },
+    //     { icon: <Music size={20} color="#FFFFFF" />, iconBg: '#06B6D4', label: 'File d\'attente', description: 'Prochaines predications', route: '/queue' },
+    //   ],
+    // },
+    // {
+    //   title: 'Préférences',
+    //   items: [
+    //     { icon: <Moon size={20} color="#FFFFFF" />, iconBg: '#6366F1', label: 'Mode sombre', description: isDark ? 'Activé' : 'Désactivé', rightElement: <Switch ... /> },
+    //     { icon: <Settings size={20} color="#FFFFFF" />, iconBg: '#64748B', label: 'Paramètres', description: 'Notifications, lecture audio', route: '/settings' },
+    //   ],
+    // },
+    // {
+    //   title: 'À propos',
+    //   items: [
+    //     { icon: <Info size={20} color="#FFFFFF" />, iconBg: '#EC4899', label: 'À propos de l\'application', description: 'Version 1.0.0' },
+    //   ],
+    // },
   ];
 
   const headerTotalHeight = HEADER_HEIGHT + insets.top;

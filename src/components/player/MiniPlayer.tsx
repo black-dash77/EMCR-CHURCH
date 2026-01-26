@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Play, Pause, SkipForward, X } from 'lucide-react-native';
+import { Play, Pause, SkipForward, X, Download } from 'lucide-react-native';
 import { View, Text, StyleSheet, Pressable, Image, useColorScheme } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -11,6 +11,7 @@ import Animated, {
 
 import { TAB_BAR_HEIGHT } from '@/components/TabBarBackground';
 import { useAudioStore } from '@/stores/useAudioStore';
+import { useDownloadStore } from '@/stores/useDownloadStore';
 import { colors, typography, spacing, borderRadius } from '@/theme';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -30,8 +31,11 @@ export function MiniPlayer() {
     isPlayerHidden,
     togglePlayPause,
     playNext,
-    hidePlayer,
+    hidePlayerCompletely,
   } = useAudioStore();
+
+  const { isDownloaded } = useDownloadStore();
+  const isCurrentDownloaded = currentSermon ? isDownloaded(currentSermon.id) : false;
 
   const scale = useSharedValue(1);
 
@@ -59,7 +63,7 @@ export function MiniPlayer() {
 
   const handleClose = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    hidePlayer();
+    hidePlayerCompletely();
   };
 
   if (!currentSermon || isPlayerHidden) return null;
@@ -119,12 +123,17 @@ export function MiniPlayer() {
 
           {/* Info */}
           <View style={styles.info}>
-            <Text
-              style={[styles.title, { color: themeColors.text }]}
-              numberOfLines={1}
-            >
-              {currentSermon.title}
-            </Text>
+            <View style={styles.titleRow}>
+              <Text
+                style={[styles.title, { color: themeColors.text }]}
+                numberOfLines={1}
+              >
+                {currentSermon.title}
+              </Text>
+              {isCurrentDownloaded && (
+                <Download size={12} color="#10B981" style={styles.downloadIcon} />
+              )}
+            </View>
             <Text
               style={[styles.speaker, { color: themeColors.textSecondary }]}
               numberOfLines={1}
@@ -225,9 +234,17 @@ const styles = StyleSheet.create({
     marginLeft: spacing[3],
     marginRight: spacing[2],
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   title: {
     ...typography.titleSmall,
     fontWeight: '600',
+    flex: 1,
+  },
+  downloadIcon: {
+    marginLeft: spacing[1],
   },
   speaker: {
     ...typography.bodySmall,

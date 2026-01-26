@@ -11,6 +11,8 @@ import {
   Share2,
   Heart,
   ChevronRight,
+  ListPlus,
+  Plus,
 } from 'lucide-react-native';
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -29,6 +31,8 @@ import {
 import Animated, { FadeInDown, FadeIn, FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AddToPlaylistModal } from '@/components/AddToPlaylistModal';
+import { AddSermonsToSeminarModal } from '@/components/AddSermonsToSeminarModal';
 import { seminarsApi } from '@/services/api';
 import { usePlayerStore } from '@/stores/usePlayerStore';
 import { useUserStore } from '@/stores/useUserStore';
@@ -50,6 +54,9 @@ export default function SeminarDetailScreen() {
   const [sermons, setSermons] = useState<Sermon[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
+  const [selectedSermon, setSelectedSermon] = useState<Sermon | null>(null);
+  const [addSermonsModalVisible, setAddSermonsModalVisible] = useState(false);
 
   const { setCurrentSermon, setQueue, setIsPlaying } = usePlayerStore();
   const { favorites, addFavorite, removeFavorite } = useUserStore();
@@ -128,6 +135,11 @@ export default function SeminarDetailScreen() {
     }
   };
 
+  const handleAddToPlaylist = (sermon: Sermon) => {
+    setSelectedSermon(sermon);
+    setPlaylistModalVisible(true);
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, styles.loadingContainer, { backgroundColor: themeColors.background }]}>
@@ -203,6 +215,16 @@ export default function SeminarDetailScreen() {
           >
             <View style={styles.backButtonInner}>
               <ArrowLeft size={20} color="#FFFFFF" />
+            </View>
+          </Pressable>
+
+          {/* Add Sermons Button */}
+          <Pressable
+            style={[styles.addButton, { top: insets.top + spacing[2] }]}
+            onPress={() => setAddSermonsModalVisible(true)}
+          >
+            <View style={styles.addButtonInner}>
+              <Plus size={20} color="#FFFFFF" />
             </View>
           </Pressable>
 
@@ -386,7 +408,19 @@ export default function SeminarDetailScreen() {
                 <View style={styles.sermonActions}>
                   <Pressable
                     style={styles.favoriteButton}
-                    onPress={() => toggleFavorite(sermon.id)}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleAddToPlaylist(sermon);
+                    }}
+                  >
+                    <ListPlus size={18} color={themeColors.textTertiary} />
+                  </Pressable>
+                  <Pressable
+                    style={styles.favoriteButton}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      toggleFavorite(sermon.id);
+                    }}
                   >
                     <Heart
                       size={18}
@@ -406,6 +440,27 @@ export default function SeminarDetailScreen() {
         {/* Bottom Padding */}
         <View style={{ height: insets.bottom + 100 }} />
       </ScrollView>
+
+      {/* Add to Playlist Modal */}
+      <AddToPlaylistModal
+        visible={playlistModalVisible}
+        onClose={() => {
+          setPlaylistModalVisible(false);
+          setSelectedSermon(null);
+        }}
+        sermonId={selectedSermon?.id || ''}
+        sermonTitle={selectedSermon?.title}
+      />
+
+      {/* Add Sermons to Seminar Modal */}
+      <AddSermonsToSeminarModal
+        visible={addSermonsModalVisible}
+        onClose={() => setAddSermonsModalVisible(false)}
+        seminarId={id || ''}
+        seminarName={seminar?.name}
+        currentSermonIds={sermons.map(s => s.id)}
+        onSermonsUpdated={loadSeminar}
+      />
     </View>
   );
 }
@@ -462,6 +517,19 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   backButtonInner: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addButton: {
+    position: 'absolute',
+    right: spacing[4],
+    zIndex: 10,
+  },
+  addButtonInner: {
     width: 40,
     height: 40,
     borderRadius: 20,
