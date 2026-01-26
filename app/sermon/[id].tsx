@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import * as WebBrowser from 'expo-web-browser';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -13,6 +14,7 @@ import {
   SkipBack,
   SkipForward,
   Headphones,
+  Video as VideoIcon,
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
@@ -50,6 +52,7 @@ export default function SermonDetailScreen() {
   const [sermon, setSermon] = useState<Sermon | null>(null);
   const [loading, setLoading] = useState(true);
   const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
+  const [mediaMode, setMediaMode] = useState<'audio' | 'video' | null>(null);
 
   const { currentSermon, isPlaying, playSermon, togglePlayPause, playPrevious, playNext } = useAudioStore();
   const { favorites, addFavorite, removeFavorite } = useUserStore();
@@ -58,12 +61,29 @@ export default function SermonDetailScreen() {
   const isSermonPlaying = isCurrentSermon && isPlaying;
   const isFavorite = id ? favorites.includes(id) : false;
 
+  // Open video in browser
+  const handleWatchVideo = async () => {
+    if (!sermon?.video_url) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    await WebBrowser.openBrowserAsync(sermon.video_url);
+  };
+
   useEffect(() => {
     const fetchSermon = async () => {
       if (!id) return;
       try {
         const data = await sermonsApi.getById(id);
+        if (!data) return;
         setSermon(data);
+        // Set default media mode based on available media
+        if (!data.audio_url && data.video_url) {
+          setMediaMode('video');
+        } else if (data.video_url) {
+          // If has video, default to video mode
+          setMediaMode('video');
+        } else {
+          setMediaMode('audio');
+        }
       } catch (error) {
         console.error('Error fetching sermon:', error);
       } finally {
@@ -73,6 +93,7 @@ export default function SermonDetailScreen() {
 
     fetchSermon();
   }, [id]);
+
 
   const handlePlayPause = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -196,29 +217,70 @@ export default function SermonDetailScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={mediaMode === 'video' ? styles.scrollContentVideo : styles.scrollContent}
       >
-        {/* Cover Art */}
-        <Animated.View
-          entering={FadeInDown.delay(100).duration(400).springify()}
-          style={styles.coverContainer}
-        >
-          <View style={[styles.coverWrapper, { shadowColor: colors.primary[500] }]}>
-            {sermon.cover_image ? (
-              <Image
-                source={{ uri: sermon.cover_image }}
-                style={styles.coverImage}
-              />
-            ) : (
-              <LinearGradient
-                colors={[colors.primary[400], colors.primary[700]]}
-                style={styles.coverImage}
-              >
-                <Headphones size={60} color="rgba(255,255,255,0.4)" />
-              </LinearGradient>
-            )}
-          </View>
-        </Animated.View>
+        {/* Video Thumbnail with Play Button */}
+        {sermon.video_url && mediaMode === 'video' && (
+          <Animated.View
+            entering={FadeInDown.delay(100).duration(400).springify()}
+            style={styles.videoSectionTop}
+          >
+            <Pressable
+              style={styles.videoThumbnailContainer}
+              onPress={handleWatchVideo}
+            >
+              {sermon.cover_image ? (
+                <Image
+                  source={{ uri: sermon.cover_image }}
+                  style={styles.videoThumbnailImage}
+                />
+              ) : (
+                <LinearGradient
+                  colors={[colors.primary[400], colors.primary[700]]}
+                  style={styles.videoThumbnailImage}
+                />
+              )}
+
+              {/* Dark overlay */}
+              <View style={styles.videoThumbnailOverlay} />
+
+              {/* Play button */}
+              <View style={styles.videoPlayButton}>
+                <Play size={40} color="#FFFFFF" fill="#FFFFFF" style={{ marginLeft: 4 }} />
+              </View>
+
+              {/* Label */}
+              <View style={styles.videoLabel}>
+                <VideoIcon size={16} color="#FFFFFF" />
+                <Text style={styles.videoLabelText}>Regarder la vidéo</Text>
+              </View>
+            </Pressable>
+          </Animated.View>
+        )}
+
+        {/* Cover Art (only for audio mode) */}
+        {mediaMode === 'audio' && (
+          <Animated.View
+            entering={FadeInDown.delay(100).duration(400).springify()}
+            style={styles.coverContainer}
+          >
+            <View style={[styles.coverWrapper, { shadowColor: colors.primary[500] }]}>
+              {sermon.cover_image ? (
+                <Image
+                  source={{ uri: sermon.cover_image }}
+                  style={styles.coverImage}
+                />
+              ) : (
+                <LinearGradient
+                  colors={[colors.primary[400], colors.primary[700]]}
+                  style={styles.coverImage}
+                >
+                  <Headphones size={60} color="rgba(255,255,255,0.4)" />
+                </LinearGradient>
+              )}
+            </View>
+          </Animated.View>
+        )}
 
         {/* Info Section */}
         <Animated.View
@@ -270,78 +332,176 @@ export default function SermonDetailScreen() {
           </View>
         </Animated.View>
 
-        {/* Player Controls */}
-        <Animated.View
-          entering={FadeInDown.delay(300).duration(400).springify()}
-          style={styles.controlsSection}
-        >
-          {/* Quick Actions */}
-          <View style={styles.quickActions}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.quickActionButton,
-                { backgroundColor: themeColors.card, opacity: pressed ? 0.7 : 1 },
-              ]}
-              onPress={handleAddToPlaylist}
-            >
-              <ListPlus size={20} color={themeColors.text} />
-              <Text style={[styles.quickActionText, { color: themeColors.textSecondary }]}>
-                Playlist
-              </Text>
-            </Pressable>
+        {/* Quick Actions for Video Mode */}
+        {mediaMode === 'video' && (
+          <Animated.View
+            entering={FadeInDown.delay(250).duration(400).springify()}
+            style={styles.videoActionsSection}
+          >
+            <View style={styles.videoActions}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.videoActionButton,
+                  { backgroundColor: themeColors.card, opacity: pressed ? 0.7 : 1 },
+                ]}
+                onPress={handleToggleFavorite}
+              >
+                <Heart
+                  size={22}
+                  color={isFavorite ? colors.accent.red : themeColors.text}
+                  fill={isFavorite ? colors.accent.red : 'transparent'}
+                />
+                <Text style={[styles.videoActionText, { color: themeColors.textSecondary }]}>
+                  {isFavorite ? 'Favori' : 'J\'aime'}
+                </Text>
+              </Pressable>
 
-            <Pressable
-              style={({ pressed }) => [
-                styles.quickActionButton,
-                {
-                  backgroundColor: isFavorite ? colors.accent.red + '15' : themeColors.card,
-                  opacity: pressed ? 0.7 : 1,
-                },
-              ]}
-              onPress={handleToggleFavorite}
-            >
-              <Heart
-                size={20}
-                color={isFavorite ? colors.accent.red : themeColors.text}
-                fill={isFavorite ? colors.accent.red : 'transparent'}
-              />
-              <Text style={[
-                styles.quickActionText,
-                { color: isFavorite ? colors.accent.red : themeColors.textSecondary }
-              ]}>
-                {isFavorite ? 'Favori' : 'J\'aime'}
-              </Text>
-            </Pressable>
-          </View>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.videoActionButton,
+                  { backgroundColor: themeColors.card, opacity: pressed ? 0.7 : 1 },
+                ]}
+                onPress={handleAddToPlaylist}
+              >
+                <ListPlus size={22} color={themeColors.text} />
+                <Text style={[styles.videoActionText, { color: themeColors.textSecondary }]}>
+                  Playlist
+                </Text>
+              </Pressable>
 
-          {/* Main Play Controls */}
-          <View style={styles.mainControls}>
-            <Pressable
-              style={styles.skipButton}
-              onPress={handlePrevious}
-            >
-              <SkipBack size={32} color={themeColors.text} fill={themeColors.text} />
-            </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.videoActionButton,
+                  { backgroundColor: themeColors.card, opacity: pressed ? 0.7 : 1 },
+                ]}
+                onPress={handleShare}
+              >
+                <Share2 size={22} color={themeColors.text} />
+                <Text style={[styles.videoActionText, { color: themeColors.textSecondary }]}>
+                  Partager
+                </Text>
+              </Pressable>
+            </View>
 
-            <Pressable
-              style={[styles.playButton, { backgroundColor: colors.primary[500] }]}
-              onPress={handlePlayPause}
-            >
-              {isSermonPlaying ? (
-                <Pause size={32} color="#FFFFFF" fill="#FFFFFF" />
-              ) : (
-                <Play size={32} color="#FFFFFF" fill="#FFFFFF" style={{ marginLeft: 4 }} />
-              )}
-            </Pressable>
+          </Animated.View>
+        )}
 
-            <Pressable
-              style={styles.skipButton}
-              onPress={handleNext}
-            >
-              <SkipForward size={32} color={themeColors.text} fill={themeColors.text} />
-            </Pressable>
-          </View>
-        </Animated.View>
+        {/* Media Mode Selector (only if both audio and video available) */}
+        {sermon.audio_url && sermon.video_url && (
+          <Animated.View
+            entering={FadeInDown.delay(250).duration(400).springify()}
+            style={styles.mediaModeSection}
+          >
+            <View style={[styles.mediaModeContainer, { backgroundColor: themeColors.card }]}>
+              <Pressable
+                style={[
+                  styles.mediaModeButton,
+                  mediaMode === 'audio' && { backgroundColor: colors.primary[500] },
+                ]}
+                onPress={() => setMediaMode('audio')}
+              >
+                <Headphones size={18} color={mediaMode === 'audio' ? '#FFFFFF' : themeColors.text} />
+                <Text style={[
+                  styles.mediaModeText,
+                  { color: mediaMode === 'audio' ? '#FFFFFF' : themeColors.textSecondary }
+                ]}>
+                  Audio
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.mediaModeButton,
+                  mediaMode === 'video' && { backgroundColor: colors.primary[500] },
+                ]}
+                onPress={() => setMediaMode('video')}
+              >
+                <VideoIcon size={18} color={mediaMode === 'video' ? '#FFFFFF' : themeColors.text} />
+                <Text style={[
+                  styles.mediaModeText,
+                  { color: mediaMode === 'video' ? '#FFFFFF' : themeColors.textSecondary }
+                ]}>
+                  Vidéo
+                </Text>
+              </Pressable>
+            </View>
+          </Animated.View>
+        )}
+
+
+        {/* Player Controls (for audio mode, only if audio available) */}
+        {sermon.audio_url && mediaMode === 'audio' && (
+          <Animated.View
+            entering={FadeInDown.delay(300).duration(400).springify()}
+            style={styles.controlsSection}
+          >
+            {/* Quick Actions */}
+            <View style={styles.quickActions}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.quickActionButton,
+                  { backgroundColor: themeColors.card, opacity: pressed ? 0.7 : 1 },
+                ]}
+                onPress={handleAddToPlaylist}
+              >
+                <ListPlus size={20} color={themeColors.text} />
+                <Text style={[styles.quickActionText, { color: themeColors.textSecondary }]}>
+                  Playlist
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.quickActionButton,
+                  {
+                    backgroundColor: isFavorite ? colors.accent.red + '15' : themeColors.card,
+                    opacity: pressed ? 0.7 : 1,
+                  },
+                ]}
+                onPress={handleToggleFavorite}
+              >
+                <Heart
+                  size={20}
+                  color={isFavorite ? colors.accent.red : themeColors.text}
+                  fill={isFavorite ? colors.accent.red : 'transparent'}
+                />
+                <Text style={[
+                  styles.quickActionText,
+                  { color: isFavorite ? colors.accent.red : themeColors.textSecondary }
+                ]}>
+                  {isFavorite ? 'Favori' : 'J\'aime'}
+                </Text>
+              </Pressable>
+            </View>
+
+            {/* Main Play Controls */}
+            <View style={styles.mainControls}>
+              <Pressable
+                style={styles.skipButton}
+                onPress={handlePrevious}
+              >
+                <SkipBack size={32} color={themeColors.text} fill={themeColors.text} />
+              </Pressable>
+
+              <Pressable
+                style={[styles.playButton, { backgroundColor: colors.primary[500] }]}
+                onPress={handlePlayPause}
+              >
+                {isSermonPlaying ? (
+                  <Pause size={32} color="#FFFFFF" fill="#FFFFFF" />
+                ) : (
+                  <Play size={32} color="#FFFFFF" fill="#FFFFFF" style={{ marginLeft: 4 }} />
+                )}
+              </Pressable>
+
+              <Pressable
+                style={styles.skipButton}
+                onPress={handleNext}
+              >
+                <SkipForward size={32} color={themeColors.text} fill={themeColors.text} />
+              </Pressable>
+            </View>
+          </Animated.View>
+        )}
 
         {/* Description */}
         {sermon.description && (
@@ -412,6 +572,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: spacing[4],
+  },
+  scrollContentVideo: {
+    paddingTop: 0,
   },
   coverContainer: {
     alignItems: 'center',
@@ -532,5 +695,103 @@ const styles = StyleSheet.create({
   description: {
     ...typography.bodyMedium,
     lineHeight: 24,
+  },
+  mediaModeSection: {
+    paddingHorizontal: spacing[6],
+    marginBottom: spacing[4],
+    alignItems: 'center',
+  },
+  mediaModeContainer: {
+    flexDirection: 'row',
+    borderRadius: borderRadius.xl,
+    padding: spacing[1],
+    gap: spacing[1],
+  },
+  mediaModeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing[2],
+    paddingHorizontal: spacing[4],
+    borderRadius: borderRadius.lg,
+    gap: spacing[2],
+  },
+  mediaModeText: {
+    ...typography.labelMedium,
+    fontWeight: '600',
+  },
+  videoSectionTop: {
+    paddingHorizontal: spacing[4],
+    marginBottom: spacing[4],
+  },
+  videoThumbnailContainer: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  videoThumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
+  videoThumbnailOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  videoPlayButton: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.primary[500],
+    justifyContent: 'center',
+    alignItems: 'center',
+    transform: [{ translateX: -40 }, { translateY: -40 }],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  videoLabel: {
+    position: 'absolute',
+    bottom: spacing[3],
+    left: spacing[3],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    borderRadius: borderRadius.full,
+  },
+  videoLabelText: {
+    color: '#FFFFFF',
+    ...typography.labelMedium,
+    fontWeight: '600',
+  },
+  videoActionsSection: {
+    paddingHorizontal: spacing[4],
+    marginBottom: spacing[4],
+    gap: spacing[3],
+  },
+  videoActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing[4],
+  },
+  videoActionButton: {
+    alignItems: 'center',
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[4],
+    borderRadius: borderRadius.xl,
+    gap: spacing[1],
+    minWidth: 80,
+  },
+  videoActionText: {
+    ...typography.labelSmall,
+    fontWeight: '500',
   },
 });

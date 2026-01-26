@@ -12,6 +12,7 @@ import {
   Megaphone,
   AlertCircle,
   Wifi,
+  Video,
 } from 'lucide-react-native';
 import { useEffect, useState, useCallback } from 'react';
 import {
@@ -93,6 +94,12 @@ export default function HomeScreen() {
   const handlePlayFeatured = async () => {
     if (!featuredSermon) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // If sermon has no audio but has video, navigate to detail page
+    if (!featuredSermon.audio_url && featuredSermon.video_url) {
+      router.push(`/sermon/${featuredSermon.id}`);
+      return;
+    }
 
     if (currentSermon?.id === featuredSermon.id) {
       await togglePlayPause();
@@ -213,8 +220,14 @@ export default function HomeScreen() {
                 {/* Content overlay */}
                 <View style={styles.featuredContent}>
                   <View style={styles.featuredBadge}>
-                    <Headphones size={12} color={colors.primary[400]} />
-                    <Text style={styles.featuredBadgeText}>Dernière prédication</Text>
+                    {!featuredSermon.audio_url && featuredSermon.video_url ? (
+                      <Video size={12} color={colors.primary[400]} />
+                    ) : (
+                      <Headphones size={12} color={colors.primary[400]} />
+                    )}
+                    <Text style={styles.featuredBadgeText}>
+                      {!featuredSermon.audio_url && featuredSermon.video_url ? 'Vidéo' : 'Dernière prédication'}
+                    </Text>
                   </View>
                   <Text style={styles.featuredTitle} numberOfLines={2}>
                     {featuredSermon.title}

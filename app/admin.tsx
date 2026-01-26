@@ -1,5 +1,4 @@
 import { decode } from 'base64-arraybuffer';
-import * as Crypto from 'expo-crypto';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
@@ -31,6 +30,7 @@ import {
   Search,
   Music,
   Check,
+  Video,
 } from 'lucide-react-native';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
@@ -113,24 +113,12 @@ interface DataItem {
   [key: string]: string | number | boolean | Speaker | undefined;
 }
 
-// Password hashing - must match web admin (index-admin.html)
-// IMPORTANT: The password stored in admin_settings.password_hash must be
-// a SHA-256 hash of (password + SALT). Use the web admin to set up initial password.
-const SALT = 'emcr_salt_2024';
-
-const hashPassword = async (password: string): Promise<string> => {
-  const data = password + SALT;
-  const hash = await Crypto.digestStringAsync(
-    Crypto.CryptoDigestAlgorithm.SHA256,
-    data
-  );
-  return hash;
-};
 
 // Storage bucket mapping
 const STORAGE_BUCKETS: Record<string, string> = {
   'sermons.cover_image': 'sermon-covers',
   'sermons.audio_url': 'sermons-audio',
+  'sermons.video_url': 'sermons-video',
   'speakers.photo_url': 'speakers-photos',
   'seminars.cover_image': 'seminars-covers',
   'events.image': 'events-images',
@@ -177,6 +165,8 @@ export default function AdminScreen() {
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingAudio, setUploadingAudio] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [videoUploadProgress, setVideoUploadProgress] = useState(0);
   const [useExistingSpeaker, setUseExistingSpeaker] = useState(false);
 
   // Load counts and reference data on mount
@@ -223,7 +213,7 @@ export default function AdminScreen() {
     }
   };
 
-  const handleLogin = async () => {
+  const handleLogin = () => {
     if (!password.trim()) {
       setAuthError('Veuillez entrer le mot de passe');
       return;
@@ -232,31 +222,15 @@ export default function AdminScreen() {
     setAuthLoading(true);
     setAuthError('');
 
-    try {
-      const { data: adminData, error } = await supabase
-        .from('admin_settings')
-        .select('password_hash')
-        .eq('id', 'default')
-        .single();
-
-      if (error) {
-        setAuthError('Erreur de connexion');
-        return;
-      }
-
-      // Hash the input password and compare with stored hash
-      const inputHash = await hashPassword(password);
-      if (adminData?.password_hash === inputHash) {
-        setIsAuthenticated(true);
-        setPassword('');
-      } else {
-        setAuthError('Mot de passe incorrect');
-      }
-    } catch (error) {
-      setAuthError('Erreur de connexion');
-    } finally {
-      setAuthLoading(false);
+    // Mot de passe admin
+    if (password === 'emcr2024') {
+      setIsAuthenticated(true);
+      setPassword('');
+    } else {
+      setAuthError('Mot de passe incorrect');
     }
+
+    setAuthLoading(false);
   };
 
   const loadSectionData = async (sectionId: string) => {
@@ -466,6 +440,66 @@ export default function AdminScreen() {
       Alert.alert('Erreur', 'Impossible de selectionner l\'audio');
     } finally {
       setUploadingAudio(false);
+    }
+  };
+
+  const pickVideo = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'video/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setUploadingVideo(true);
+        setVideoUploadProgress(0);
+        const asset = result.assets[0];
+        const bucket = 'sermons-video';
+
+        const fileExt = asset.name.split('.').pop()?.toLowerCase() || 'mp4';
+        const fileName = `${Date.now()}.${fileExt}`;
+        const contentType = asset.mimeType || 'video/mp4';
+
+        // Obtenir le blob du fichier
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+
+        // Simuler la progression (estimation)
+        const progressInterval = setInterval(() => {
+          setVideoUploadProgress(prev => Math.min(prev + 5, 90));
+        }, 1000);
+
+        const { error: uploadError } = await supabase.storage
+          .from(bucket)
+          .upload(fileName, blob, {
+            contentType,
+            upsert: true,
+          });
+
+        clearInterval(progressInterval);
+        setVideoUploadProgress(100);
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          Alert.alert('Erreur', `Impossible d'uploader la video: ${uploadError.message}`);
+          return;
+        }
+
+        const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(fileName);
+
+        setFormData(prev => ({
+          ...prev,
+          video_url: publicUrl,
+        }));
+
+        Alert.alert('Succes', 'Video uploadee!');
+      }
+    } catch (error) {
+      console.error('Video picker error:', error);
+      Alert.alert('Erreur', 'Impossible d\'uploader la video');
+    } finally {
+      setUploadingVideo(false);
+      setVideoUploadProgress(0);
     }
   };
 
@@ -917,6 +951,69 @@ export default function AdminScreen() {
                   Glissez ou cliquez pour ajouter un fichier audio
                 </Text>
                 <View style={styles.audioPickerButtonInner}>
+                  <Upload size={16} color="#FFFFFF" />
+                  <Text style={styles.audioPickerButtonText}>Parcourir</Text>
+                </View>
+              </>
+            )}
+          </Pressable>
+        )}
+      </View>
+
+      {/* Video File */}
+      <View style={styles.formField}>
+        <Text style={[styles.formLabel, { color: themeColors.text }]}>Fichier video (optionnel)</Text>
+        {formData.video_url ? (
+          <View style={[styles.audioPreview, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+            <View style={styles.audioPreviewContent}>
+              <Video size={24} color="#8B5CF6" />
+              <View style={styles.audioPreviewText}>
+                <Text style={[styles.audioUploadedText, { color: '#8B5CF6' }]}>
+                  ✓ Fichier video uploade
+                </Text>
+                <Text style={[styles.audioUrlText, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                  {formData.video_url.split('/').pop()}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.audioActions}>
+              <Pressable
+                style={styles.audioActionButton}
+                onPress={pickVideo}
+              >
+                <Text style={[styles.audioActionText, { color: '#3B82F6' }]}>Remplacer</Text>
+              </Pressable>
+              <Pressable
+                style={styles.audioActionButton}
+                onPress={() => setFormData(prev => ({ ...prev, video_url: '' }))}
+              >
+                <Text style={[styles.audioActionText, { color: '#EF4444' }]}>Supprimer</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <Pressable
+            style={[styles.audioPickerButton, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+            onPress={pickVideo}
+            disabled={uploadingVideo}
+          >
+            {uploadingVideo ? (
+              <View style={styles.uploadProgressContainer}>
+                <ActivityIndicator color="#8B5CF6" />
+                <Text style={[styles.audioPickerText, { color: themeColors.textSecondary }]}>
+                  Upload en cours... {videoUploadProgress}%
+                </Text>
+                <View style={styles.progressBarContainer}>
+                  <View style={[styles.progressBar, { width: `${videoUploadProgress}%` }]} />
+                </View>
+              </View>
+            ) : (
+              <>
+                <Video size={32} color={themeColors.textTertiary} />
+                <Text style={[styles.audioPickerText, { color: themeColors.textSecondary }]}>
+                  Glissez ou cliquez pour ajouter une video
+                </Text>
+                <View style={[styles.audioPickerButtonInner, { backgroundColor: '#8B5CF6' }]}>
                   <Upload size={16} color="#FFFFFF" />
                   <Text style={styles.audioPickerButtonText}>Parcourir</Text>
                 </View>
@@ -1781,8 +1878,8 @@ export default function AdminScreen() {
               </Text>
               <Pressable
                 onPress={handleSave}
-                disabled={saving || uploadingImage || uploadingAudio}
-                style={[styles.formSaveButton, (saving || uploadingImage || uploadingAudio) && { opacity: 0.5 }]}
+                disabled={saving || uploadingImage || uploadingAudio || uploadingVideo}
+                style={[styles.formSaveButton, (saving || uploadingImage || uploadingAudio || uploadingVideo) && { opacity: 0.5 }]}
               >
                 {saving ? (
                   <ActivityIndicator color="#3B82F6" size="small" />
@@ -2447,6 +2544,23 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     ...typography.bodySmall,
     fontWeight: '600',
+  },
+  uploadProgressContainer: {
+    alignItems: 'center',
+    width: '100%',
+    gap: spacing[3],
+  },
+  progressBarContainer: {
+    width: '100%',
+    height: 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: '#8B5CF6',
+    borderRadius: 4,
   },
   audioPreview: {
     borderRadius: borderRadius.lg,

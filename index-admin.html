@@ -898,15 +898,18 @@
         series: item?.series || '',
         year: item?.year || new Date().getFullYear(),
         audio_url: item?.audio_url || '',
+        video_url: item?.video_url || '',
         download_url: item?.download_url || '',
         cover_image: item?.cover_image || '',
         seminar_id: item?.seminar_id || '',
       });
       const [uploading, setUploading] = useState(false);
       const [uploadingCover, setUploadingCover] = useState(false);
+      const [uploadingVideo, setUploadingVideo] = useState(false);
       const [useExistingSpeaker, setUseExistingSpeaker] = useState(!!item?.speaker_id);
       const fileInputRef = useRef(null);
       const coverInputRef = useRef(null);
+      const videoInputRef = useRef(null);
 
       const handleSpeakerSelect = (speakerId) => {
         if (speakerId) {
@@ -989,6 +992,34 @@
         const { data: { publicUrl } } = sb.storage.from('sermon-covers').getPublicUrl(filePath);
         setFormData(prev => ({ ...prev, cover_image: publicUrl }));
         setUploadingCover(false);
+      };
+
+      const handleVideoUpload = async (file) => {
+        if (!file) return;
+        setUploadingVideo(true);
+
+        const sb = initSupabase();
+        const fileExt = file.name.split('.').pop();
+        const fileName = `video_${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { data, error } = await sb.storage.from('sermons-video').upload(filePath, file);
+
+        if (error) {
+          alert('Erreur upload vidéo: ' + error.message);
+          setUploadingVideo(false);
+          return;
+        }
+
+        const { data: { publicUrl } } = sb.storage.from('sermons-video').getPublicUrl(filePath);
+        setFormData(prev => ({ ...prev, video_url: publicUrl }));
+        setUploadingVideo(false);
+      };
+
+      const handleVideoDrop = (e) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files[0];
+        if (file) handleVideoUpload(file);
       };
 
       const handleDrop = (e) => {
@@ -1224,6 +1255,79 @@
                 </div>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium mb-2 text-slate-900 dark:text-white">Fichier vidéo (optionnel)</label>
+                <div
+                  onDrop={handleVideoDrop}
+                  onDragOver={e => e.preventDefault()}
+                  className={cls(
+                    "border-2 border-dashed rounded-lg p-8 text-center transition",
+                    uploadingVideo ? "uploading" : "",
+                    "border-slate-300 dark:border-slate-700 hover:border-purple-500 dark:hover:border-purple-500"
+                  )}
+                >
+                  {formData.video_url ? (
+                    <div>
+                      <p className="text-sm text-purple-600 dark:text-purple-400 mb-2">✓ Vidéo uploadée</p>
+                      <video controls className="w-full mb-2 max-h-48 rounded">
+                        <source src={formData.video_url} />
+                      </video>
+                      <div className="flex gap-2 justify-center">
+                        <button
+                          type="button"
+                          onClick={() => videoInputRef.current?.click()}
+                          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          Remplacer
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, video_url: '' }))}
+                          className="text-sm text-red-600 dark:text-red-400 hover:underline"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      {uploadingVideo ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <svg className="animate-spin h-8 w-8 text-purple-600" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <p className="text-sm text-slate-600 dark:text-slate-400">Upload en cours...</p>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+                            Glissez une vidéo ici ou
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => videoInputRef.current?.click()}
+                            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm"
+                          >
+                            Parcourir
+                          </button>
+                          <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">
+                            Formats: MP4, WebM, MOV (max 500MB)
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  <input
+                    ref={videoInputRef}
+                    type="file"
+                    accept="video/*"
+                    className="hidden"
+                    onChange={e => handleVideoUpload(e.target.files[0])}
+                  />
+                </div>
+              </div>
+
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
                 <button
                   type="button"
@@ -1234,10 +1338,10 @@
                 </button>
                 <button
                   type="submit"
-                  disabled={uploading}
+                  disabled={uploading || uploadingVideo || uploadingCover}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {uploading ? 'Enregistrement...' : 'Enregistrer'}
+                  {(uploading || uploadingVideo || uploadingCover) ? 'Enregistrement...' : 'Enregistrer'}
                 </button>
               </div>
             </form>

@@ -9,8 +9,39 @@ Application mobile pour l'Eglise EMCR - Ecouter des sermons, suivre les annonces
 
 ---
 
+## Limitation Importante : Videos sur Supabase Storage
+
+> **Supabase Storage n'est PAS optimise pour le streaming video.**
+
+Les videos uploadees sur Supabase Storage peuvent prendre un temps tres long a charger (plusieurs minutes) car :
+- Pas de CDN optimise pour la video
+- Pas de streaming adaptatif (HLS/DASH)
+- Pas de mise en cache efficace pour les gros fichiers
+
+### Solutions Recommandees
+
+| Solution | Avantages | Inconvenients |
+|----------|-----------|---------------|
+| **YouTube (Recommande)** | Gratuit, rapide, plein ecran natif, streaming adaptatif | Videos publiques ou non-listees |
+| **Vimeo** | Plus de controle sur la confidentialite | Payant pour les fonctionnalites avancees |
+| **Cloudflare Stream** | CDN global, streaming adaptatif | Payant (~$1/1000 minutes vues) |
+| **Bunny.net** | Tres economique, CDN rapide | Configuration technique requise |
+| **Mux** | API excellente, analytics | Payant |
+
+### Implementation Actuelle
+
+L'app gere les sermons avec `video_url` de la maniere suivante :
+1. Si le sermon a une `video_url` mais pas d'`audio_url`, il est affiche comme "Video"
+2. Un clic sur la miniature ouvre la video dans le navigateur externe (Safari/Chrome)
+3. Le navigateur gere le streaming et le plein ecran nativement
+
+Pour une meilleure experience, il est **fortement recommande** d'utiliser YouTube pour les videos et de stocker uniquement les fichiers audio sur Supabase Storage.
+
+---
+
 ## Table des Matieres
 
+- [Limitation Videos Supabase](#limitation-importante--videos-sur-supabase-storage)
 - [Fonctionnalites](#fonctionnalites)
 - [Stack Technique](#stack-technique)
 - [Prerequis](#prerequis)
@@ -30,7 +61,8 @@ Application mobile pour l'Eglise EMCR - Ecouter des sermons, suivre les annonces
 
 | Fonctionnalite | Description |
 |----------------|-------------|
-| **Sermons** | Ecouter et telecharger des sermons audio |
+| **Sermons Audio** | Ecouter et telecharger des sermons audio |
+| **Sermons Video** | Regarder les predications video (ouvre dans le navigateur) |
 | **Evenements** | Calendrier des evenements de l'eglise |
 | **Annonces** | Actualites et communications urgentes |
 | **Orateurs** | Profils des predicateurs avec leurs sermons |
@@ -420,11 +452,13 @@ interface Sermon {
   speaker: string;
   speaker_id: string | null;
   description: string | null;
-  audio_url: string;
+  audio_url: string | null;  // Nullable - peut etre video-only
+  video_url: string | null;  // URL de la video
   cover_image: string | null;
   date: string;
   duration_seconds: number | null;
   seminar_id: string | null;
+  tags: string[] | null;
 }
 
 // Speaker (Orateur)
@@ -509,11 +543,15 @@ const themeColors = isDark ? colors.dark : colors.light;
 | speaker | text | Nom de l'orateur |
 | speaker_id | uuid | Reference vers speakers |
 | description | text | Description |
-| audio_url | text | URL du fichier audio |
+| audio_url | text | URL du fichier audio (nullable) |
+| video_url | text | URL de la video (nullable) |
 | cover_image | text | URL de l'image |
 | date | date | Date du sermon |
 | duration_seconds | integer | Duree en secondes |
 | seminar_id | uuid | Reference vers seminars |
+| tags | text[] | Tags/categories |
+
+> **Note**: Un sermon peut avoir `audio_url`, `video_url`, ou les deux. Si seul `video_url` est present, le sermon est affiche comme "Video".
 
 #### `speakers`
 | Colonne | Type | Description |
@@ -550,6 +588,7 @@ const themeColors = isDark ? colors.dark : colors.light;
 | Bucket | Contenu |
 |--------|---------|
 | `sermons-audio` | Fichiers audio MP3 |
+| `sermons-video` | Fichiers video (non recommande - voir limitation ci-dessus) |
 | `sermon-covers` | Images de couverture sermons |
 | `speakers-photos` | Photos des orateurs |
 | `events-images` | Images des evenements |

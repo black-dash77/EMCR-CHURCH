@@ -48,7 +48,8 @@ export interface Sermon {
   speaker_id: string | null;
   speaker_profile?: Speaker;
   description: string | null;
-  audio_url: string;
+  audio_url: string | null;
+  video_url: string | null;
   cover_image: string | null;
   date: string;
   duration_seconds: number | null;
