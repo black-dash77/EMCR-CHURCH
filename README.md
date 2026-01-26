@@ -7,104 +7,181 @@ Application mobile pour l'Eglise EMCR - Ecouter des sermons, suivre les annonces
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Backend-3ECF8E?logo=supabase)
 
+---
+
+## Table des Matieres
+
+- [Fonctionnalites](#fonctionnalites)
+- [Stack Technique](#stack-technique)
+- [Prerequis](#prerequis)
+- [Installation](#installation)
+- [Lancement de l'Application](#lancement-de-lapplication)
+- [Scripts Disponibles](#scripts-disponibles)
+- [Architecture du Projet](#architecture-du-projet)
+- [Documentation du Code](#documentation-du-code)
+- [Base de Donnees](#base-de-donnees-supabase)
+- [Panel d'Administration](#panel-dadministration)
+- [Depannage](#depannage)
+- [Contribution](#contribution)
+
+---
+
 ## Fonctionnalites
 
-- **Sermons** - Ecouter et telecharger des sermons audio
-- **Evenements** - Calendrier des evenements de l'eglise
-- **Annonces** - Actualites et communications
-- **Orateurs** - Profils des predicateurs
-- **Seminaires** - Series de predications thematiques
-- **Lecteur Audio** - Lecteur complet avec file d'attente, vitesse de lecture, minuterie de sommeil
-- **Telechargements** - Ecoute hors-ligne des sermons
-- **Favoris & Historique** - Suivre vos sermons preferes
-- **Mode Sombre** - Support automatique du theme systeme
-- **Panel Admin** - Gestion du contenu (mobile + web)
+| Fonctionnalite | Description |
+|----------------|-------------|
+| **Sermons** | Ecouter et telecharger des sermons audio |
+| **Evenements** | Calendrier des evenements de l'eglise |
+| **Annonces** | Actualites et communications urgentes |
+| **Orateurs** | Profils des predicateurs avec leurs sermons |
+| **Seminaires** | Series de predications thematiques |
+| **Lecteur Audio** | Lecteur complet avec file d'attente, vitesse de lecture, minuterie de sommeil |
+| **Telechargements** | Ecoute hors-ligne des sermons |
+| **Favoris & Historique** | Suivre vos sermons preferes |
+| **Mode Sombre** | Support automatique du theme systeme |
+| **Notifications Push** | Alertes pour nouveaux contenus |
+| **Panel Admin** | Gestion du contenu (mobile + web) |
+
+---
 
 ## Stack Technique
 
+### Frontend Mobile
+| Technologie | Version | Description |
+|-------------|---------|-------------|
+| React Native | 0.81.5 | Framework mobile cross-platform |
+| Expo SDK | 54 | Plateforme de developpement |
+| Expo Router | 6.0 | Navigation basee sur les fichiers |
+| TypeScript | 5.9 | Typage statique |
+| Zustand | 5.0 | Gestion d'etat legere et performante |
+| React Native Reanimated | 4.1 | Animations fluides |
+
+### Backend
 | Technologie | Description |
 |-------------|-------------|
-| **React Native** | Framework mobile cross-platform |
-| **Expo SDK 54** | Plateforme de developpement |
-| **Expo Router** | Navigation basee sur les fichiers |
-| **TypeScript** | Typage statique |
-| **Zustand** | Gestion d'etat |
-| **Supabase** | Backend (Auth, Database, Storage) |
-| **expo-av** | Lecture audio |
+| Supabase | Backend-as-a-Service (PostgreSQL) |
+| Supabase Auth | Authentification |
+| Supabase Storage | Stockage fichiers (audio, images) |
+| Supabase Edge Functions | Fonctions serverless (notifications) |
+
+### Outils de Developpement
+| Outil | Description |
+|-------|-------------|
+| ESLint | Linting du code |
+| Prettier | Formatage du code |
+| Husky | Git hooks (pre-commit) |
+| TypeScript | Verification des types |
+
+---
 
 ## Prerequis
 
-Avant de commencer, assurez-vous d'avoir installe :
+### Obligatoires
 
-- **Node.js** >= 18.0.0 ([Telecharger](https://nodejs.org/))
-- **npm** >= 9.0.0 (inclus avec Node.js)
-- **Git** ([Telecharger](https://git-scm.com/))
-- **Expo Go** app sur votre telephone ([iOS](https://apps.apple.com/app/expo-go/id982107779) | [Android](https://play.google.com/store/apps/details?id=host.exp.exponent))
+| Logiciel | Version Minimum | Lien |
+|----------|-----------------|------|
+| Node.js | >= 18.0.0 | [nodejs.org](https://nodejs.org/) |
+| npm | >= 9.0.0 | Inclus avec Node.js |
+| Git | >= 2.0 | [git-scm.com](https://git-scm.com/) |
+| Expo Go | Derniere version | [iOS](https://apps.apple.com/app/expo-go/id982107779) / [Android](https://play.google.com/store/apps/details?id=host.exp.exponent) |
 
-### Optionnel (pour le developpement natif)
+### Optionnels (Developpement Natif)
 
-- **Xcode** (macOS uniquement, pour iOS)
-- **Android Studio** (pour Android)
+| Logiciel | Plateforme | Description |
+|----------|------------|-------------|
+| Xcode | macOS | Pour builds iOS natifs |
+| Android Studio | Tous | Pour builds Android natifs |
+| Watchman | macOS/Linux | Surveillance des fichiers (recommande) |
+
+---
 
 ## Installation
 
-### 1. Cloner le projet
+### 1. Cloner le Projet
 
 ```bash
 git clone https://github.com/black-dash77/EMCR-CHURCH.git
 cd EMCR-CHURCH
 ```
 
-### 2. Installer les dependances
+### 2. Installer les Dependances
 
 ```bash
 npm install
 ```
 
-### 3. Configurer les variables d'environnement
+### 3. Configurer les Variables d'Environnement
 
-Creer un fichier `.env` a la racine du projet :
+```bash
+# Copier le fichier exemple
+cp .env.example .env
 
+# Editer avec vos cles Supabase
+nano .env  # ou ouvrez avec votre editeur
+```
+
+Contenu du fichier `.env` :
 ```env
 EXPO_PUBLIC_SUPABASE_URL=https://votre-projet.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=votre_cle_anon_supabase
 ```
 
-> **Note** : Contactez l'administrateur du projet pour obtenir les cles Supabase.
+> **Important** : Ne jamais commiter le fichier `.env` (il est dans `.gitignore`).
+
+### 4. Verifier l'Installation
+
+```bash
+# Verifier les types TypeScript
+npm run typecheck
+
+# Verifier le linting
+npm run lint
+```
+
+---
 
 ## Lancement de l'Application
 
-### Methode 1 : Avec Expo Go (Recommande pour debuter)
+### Methode 1 : Expo Go (Recommande pour Debuter)
 
 ```bash
 npm start
 ```
 
-Cela ouvre le Metro Bundler. Ensuite :
+Cela ouvre le Metro Bundler avec un QR code :
 
-- **iOS** : Scannez le QR code avec l'app Camera
-- **Android** : Scannez le QR code avec l'app Expo Go
+- **iOS** : Scannez le QR code avec l'app Camera, puis ouvrez dans Expo Go
+- **Android** : Ouvrez Expo Go et scannez le QR code
 
-### Methode 2 : Depuis VS Code
+### Methode 2 : VS Code
 
-1. Ouvrez le projet dans VS Code :
+1. Ouvrez le projet :
    ```bash
    code .
    ```
 
-2. Ouvrez le terminal integre (`Ctrl+`` ` ou `Cmd+`` `)
+2. Ouvrez le terminal integre : `Ctrl+`` ` (ou `Cmd+`` ` sur Mac)
 
-3. Lancez le serveur de developpement :
+3. Lancez le serveur :
    ```bash
    npm start
    ```
 
-4. Appuyez sur :
-   - `i` pour ouvrir sur iOS Simulator
-   - `a` pour ouvrir sur Android Emulator
-   - `w` pour ouvrir dans le navigateur web
+4. Utilisez les raccourcis dans le terminal :
+   - `i` - Ouvrir sur iOS Simulator
+   - `a` - Ouvrir sur Android Emulator
+   - `w` - Ouvrir dans le navigateur
+   - `r` - Recharger l'app
+   - `m` - Ouvrir le menu dev
 
-### Methode 3 : Build de developpement (Dev Client)
+### Methode 3 : WebStorm / IntelliJ
+
+1. Ouvrez le projet dans WebStorm
+2. Ouvrez le terminal (`Alt+F12`)
+3. Executez `npm start`
+4. Utilisez les memes raccourcis que VS Code
+
+### Methode 4 : Build Natif (Dev Client)
 
 Pour acceder aux fonctionnalites natives completes :
 
@@ -116,141 +193,492 @@ npm run ios
 npm run android
 ```
 
-### Methode 4 : Mode Tunnel (Reseau distant)
+### Methode 5 : Mode Tunnel (Reseau Distant)
 
-Si votre telephone et votre ordinateur ne sont pas sur le meme reseau :
+Si votre telephone et ordinateur ne sont pas sur le meme Wi-Fi :
 
 ```bash
 npx expo start --tunnel
 ```
 
+---
+
 ## Scripts Disponibles
 
 | Commande | Description |
 |----------|-------------|
-| `npm start` | Demarre le serveur de developpement Expo |
-| `npm run ios` | Lance l'app sur iOS Simulator |
-| `npm run android` | Lance l'app sur Android Emulator |
-| `npm run web` | Lance l'app dans le navigateur |
-| `npm run lint` | Verifie le code avec ESLint |
-| `npm run lint:fix` | Corrige automatiquement les erreurs de lint |
+| `npm start` | Demarre le serveur Expo |
+| `npm run ios` | Lance sur iOS Simulator |
+| `npm run android` | Lance sur Android Emulator |
+| `npm run web` | Lance dans le navigateur |
+| `npm run lint` | Verifie le code (ESLint) |
+| `npm run lint:fix` | Corrige automatiquement les erreurs |
 | `npm run typecheck` | Verifie les types TypeScript |
-| `npm run format` | Formate le code avec Prettier |
+| `npm run format` | Formate le code (Prettier) |
 
-## Structure du Projet
+---
+
+## Architecture du Projet
 
 ```
 EMCR-CHURCH/
-├── app/                    # Pages de l'application (Expo Router)
-│   ├── (tabs)/            # Navigation par onglets
-│   │   ├── index.tsx      # Page d'accueil
-│   │   ├── sermons.tsx    # Liste des sermons
-│   │   ├── events.tsx     # Evenements
-│   │   ├── announcements.tsx # Annonces
-│   │   └── more.tsx       # Menu Plus
-│   ├── sermon/[id].tsx    # Detail d'un sermon
-│   ├── speaker/[id].tsx   # Profil d'un orateur
-│   ├── admin.tsx          # Panel d'administration
-│   └── _layout.tsx        # Layout principal
+├── app/                          # Pages (Expo Router - file-based routing)
+│   ├── (tabs)/                   # Navigation par onglets
+│   │   ├── _layout.tsx          # Configuration des tabs
+│   │   ├── index.tsx            # Accueil
+│   │   ├── sermons.tsx          # Liste des sermons
+│   │   ├── events.tsx           # Evenements
+│   │   ├── announcements.tsx    # Annonces
+│   │   └── more.tsx             # Menu Plus
+│   ├── sermon/[id].tsx          # Detail sermon (route dynamique)
+│   ├── speaker/[id].tsx         # Profil orateur
+│   ├── seminar/[id].tsx         # Detail seminaire
+│   ├── admin.tsx                # Panel admin mobile
+│   ├── downloads.tsx            # Sermons telecharges
+│   ├── favorites.tsx            # Favoris
+│   ├── history.tsx              # Historique d'ecoute
+│   ├── player.tsx               # Lecteur plein ecran
+│   ├── queue.tsx                # File d'attente
+│   ├── settings.tsx             # Parametres
+│   └── _layout.tsx              # Layout principal
+│
 ├── src/
-│   ├── components/        # Composants React reutilisables
-│   │   ├── player/       # Composants du lecteur audio
-│   │   └── ui/           # Composants UI generiques
-│   ├── services/          # Services (Supabase, Audio, etc.)
-│   ├── stores/            # Stores Zustand (etat global)
-│   ├── hooks/             # Hooks personnalises
-│   ├── types/             # Types TypeScript
-│   └── theme/             # Theme et styles
-├── assets/                # Images, icones, fonts
-├── supabase/              # Fonctions Edge Supabase
-├── index-admin.html       # Panel admin web
-└── package.json
+│   ├── components/              # Composants reutilisables
+│   │   ├── player/             # Lecteur audio
+│   │   │   ├── MiniPlayer.tsx  # Mini lecteur (bas de l'ecran)
+│   │   │   └── ExpandedPlayer.tsx # Lecteur plein ecran
+│   │   ├── AddToPlaylistModal.tsx
+│   │   ├── FilterModal.tsx
+│   │   └── ...
+│   │
+│   ├── services/                # Services et API
+│   │   ├── supabase.ts         # Client Supabase
+│   │   ├── audioService.ts     # Gestion audio (expo-av)
+│   │   ├── downloadService.ts  # Telechargements hors-ligne
+│   │   ├── notificationService.ts # Push notifications
+│   │   └── api/                # Requetes API par entite
+│   │       ├── sermons.ts
+│   │       ├── speakers.ts
+│   │       ├── events.ts
+│   │       └── seminars.ts
+│   │
+│   ├── stores/                  # Etat global (Zustand)
+│   │   ├── useAudioStore.ts    # Etat du lecteur audio
+│   │   ├── useDownloadStore.ts # Etat des telechargements
+│   │   ├── useUserStore.ts     # Preferences utilisateur
+│   │   └── usePlayerStore.ts   # UI du lecteur
+│   │
+│   ├── hooks/                   # Hooks personnalises
+│   │   ├── useColorScheme.ts   # Theme clair/sombre
+│   │   └── useDebounce.ts      # Debounce pour recherche
+│   │
+│   ├── types/                   # Types TypeScript
+│   │   └── index.ts            # Toutes les interfaces
+│   │
+│   ├── theme/                   # Theming
+│   │   ├── colors.ts           # Palette de couleurs
+│   │   ├── typography.ts       # Styles de texte
+│   │   └── spacing.ts          # Espacements
+│   │
+│   └── utils/                   # Utilitaires
+│       ├── formatters.ts       # Formatage dates/durees
+│       └── strings.ts          # Manipulation de strings
+│
+├── assets/                      # Ressources statiques
+│   ├── icon.png                # Icone de l'app
+│   ├── splash-icon.png         # Ecran de chargement
+│   └── fonts/                  # Polices personnalisees
+│
+├── supabase/                    # Backend Supabase
+│   └── functions/              # Edge Functions
+│       ├── send-push-notification/
+│       └── sunday-notification-cron/
+│
+├── index-admin.html            # Panel admin web
+├── app.json                    # Configuration Expo
+├── package.json                # Dependances
+├── tsconfig.json               # Configuration TypeScript
+└── .env.example                # Template variables d'env
 ```
+
+---
+
+## Documentation du Code
+
+### Stores (Zustand)
+
+#### `useAudioStore.ts` - Gestion du Lecteur Audio
+
+```typescript
+// Etat
+interface AudioState {
+  currentSermon: Sermon | null;    // Sermon en cours
+  isPlaying: boolean;              // Lecture en cours
+  isLoading: boolean;              // Chargement audio
+  currentTime: number;             // Position (secondes)
+  duration: number;                // Duree totale
+  playbackRate: PlaybackRate;      // Vitesse (0.5x - 2x)
+  volume: number;                  // Volume (0-1)
+  repeatMode: RepeatMode;          // off | all | one
+  queue: Sermon[];                 // File d'attente
+  sleepTimerEndTime: number | null; // Minuterie sommeil
+}
+
+// Actions principales
+playSermon(sermon)      // Jouer un sermon
+togglePlayPause()       // Play/Pause
+seek(seconds)          // Aller a une position
+skipForward(30)        // Avancer de 30s
+skipBackward(15)       // Reculer de 15s
+playNext()             // Sermon suivant
+playPrevious()         // Sermon precedent
+setPlaybackRate(1.5)   // Changer la vitesse
+setSleepTimer(30)      // Minuterie 30 min
+```
+
+#### `useDownloadStore.ts` - Telechargements Hors-ligne
+
+```typescript
+// Etat
+interface DownloadState {
+  downloads: Record<string, DownloadedSermon>;
+  downloadProgress: Record<string, number>;
+  isDownloading: Record<string, boolean>;
+}
+
+// Actions
+startDownload(sermon)   // Demarrer telechargement
+pauseDownload(id)       // Mettre en pause
+resumeDownload(id)      // Reprendre
+removeDownload(id)      // Supprimer
+getLocalUri(id)         // Obtenir le chemin local
+```
+
+#### `useUserStore.ts` - Preferences Utilisateur
+
+```typescript
+// Etat persiste (AsyncStorage)
+interface UserState {
+  favoriteSermons: string[];       // IDs des favoris
+  history: HistoryEntry[];         // Historique d'ecoute
+  playlists: Playlist[];           // Playlists personnelles
+  notificationPreferences: {...};  // Prefs notifications
+}
+```
+
+### Services
+
+#### `supabase.ts` - Client Supabase
+
+```typescript
+import { supabase } from '@/services/supabase';
+
+// Exemple: Recuperer les sermons
+const { data, error } = await supabase
+  .from('sermons')
+  .select('*, speaker:speakers(*)')
+  .order('date', { ascending: false });
+```
+
+#### `audioService.ts` - Lecture Audio
+
+```typescript
+import { audioService } from '@/services/audioService';
+
+// Charger et jouer
+await audioService.loadAudio(url, startPosition);
+await audioService.play();
+await audioService.pause();
+await audioService.seekTo(position);
+await audioService.setPlaybackRate(1.5);
+```
+
+#### `downloadService.ts` - Telechargements
+
+```typescript
+import { downloadService } from '@/services/downloadService';
+
+// Telecharger un sermon
+const result = await downloadService.downloadSermon(sermon, (progress) => {
+  console.log(`${progress}%`);
+});
+
+// Verifier si telecharge
+const isDownloaded = await downloadService.isDownloaded(sermonId);
+
+// Obtenir l'espace utilise
+const bytes = await downloadService.getTotalDownloadSize();
+```
+
+### Types TypeScript
+
+```typescript
+// Sermon
+interface Sermon {
+  id: string;
+  title: string;
+  speaker: string;
+  speaker_id: string | null;
+  description: string | null;
+  audio_url: string;
+  cover_image: string | null;
+  date: string;
+  duration_seconds: number | null;
+  seminar_id: string | null;
+}
+
+// Speaker (Orateur)
+interface Speaker {
+  id: string;
+  name: string;
+  bio: string | null;
+  photo_url: string | null;
+  ministry: string | null;
+}
+
+// Event
+interface Event {
+  id: string;
+  title: string;
+  description: string | null;
+  date: string;
+  time: string | null;
+  location: string | null;
+  image: string | null;
+}
+
+// Announcement
+interface Announcement {
+  id: string;
+  title: string;
+  content: string | null;
+  urgent: boolean;
+  date: string;
+  image: string | null;
+}
+```
+
+### Navigation (Expo Router)
+
+```typescript
+// Navigation vers une page
+import { useRouter } from 'expo-router';
+
+const router = useRouter();
+
+// Navigation simple
+router.push('/sermons');
+
+// Navigation avec parametres
+router.push(`/sermon/${sermon.id}`);
+
+// Retour arriere
+router.back();
+
+// Remplacement (pas d'historique)
+router.replace('/');
+```
+
+### Theme et Styles
+
+```typescript
+import { colors, typography, spacing } from '@/theme';
+
+// Couleurs avec support dark mode
+const themeColors = isDark ? colors.dark : colors.light;
+
+// Utilisation
+<View style={{ backgroundColor: themeColors.background }}>
+  <Text style={[typography.h1, { color: themeColors.text }]}>
+    Titre
+  </Text>
+</View>
+```
+
+---
+
+## Base de Donnees (Supabase)
+
+### Schema des Tables
+
+#### `sermons`
+| Colonne | Type | Description |
+|---------|------|-------------|
+| id | uuid | Identifiant unique |
+| title | text | Titre du sermon |
+| speaker | text | Nom de l'orateur |
+| speaker_id | uuid | Reference vers speakers |
+| description | text | Description |
+| audio_url | text | URL du fichier audio |
+| cover_image | text | URL de l'image |
+| date | date | Date du sermon |
+| duration_seconds | integer | Duree en secondes |
+| seminar_id | uuid | Reference vers seminars |
+
+#### `speakers`
+| Colonne | Type | Description |
+|---------|------|-------------|
+| id | uuid | Identifiant unique |
+| name | text | Nom complet |
+| bio | text | Biographie |
+| photo_url | text | URL de la photo |
+| ministry | text | Ministere/Role |
+
+#### `events`
+| Colonne | Type | Description |
+|---------|------|-------------|
+| id | uuid | Identifiant unique |
+| title | text | Titre |
+| description | text | Description |
+| date | date | Date de l'evenement |
+| time | time | Heure |
+| location | text | Lieu |
+| image | text | URL de l'image |
+
+#### `announcements`
+| Colonne | Type | Description |
+|---------|------|-------------|
+| id | uuid | Identifiant unique |
+| title | text | Titre |
+| content | text | Contenu |
+| urgent | boolean | Annonce urgente |
+| date | date | Date de publication |
+| image | text | URL de l'image |
+
+### Storage Buckets
+
+| Bucket | Contenu |
+|--------|---------|
+| `sermons-audio` | Fichiers audio MP3 |
+| `sermon-covers` | Images de couverture sermons |
+| `speakers-photos` | Photos des orateurs |
+| `events-images` | Images des evenements |
+| `announcements-images` | Images des annonces |
+
+---
 
 ## Panel d'Administration
 
 ### Admin Mobile
 
-Accessible depuis l'app via **Plus > Administration**.
+Accessible depuis : **Plus > Administration**
 
-Mot de passe requis (configure dans Supabase).
+**Fonctionnalites :**
+- Gestion des sermons (CRUD)
+- Gestion des orateurs
+- Gestion des seminaires
+- Upload audio et images
+- Gestion des evenements et annonces
+
+**Securite :**
+- Authentification par mot de passe hashe (SHA-256)
+- Session de 24 heures
 
 ### Admin Web
 
-Ouvrez `index-admin.html` dans un navigateur ou deployez-le sur un serveur web.
+Ouvrez `index-admin.html` dans un navigateur.
 
 ```bash
 # Ouvrir localement
 open index-admin.html
+
+# Ou servir avec un serveur local
+npx serve .
 ```
 
-## Base de Donnees (Supabase)
-
-### Tables Principales
-
-| Table | Description |
-|-------|-------------|
-| `sermons` | Sermons audio |
-| `speakers` | Orateurs/Predicateurs |
-| `seminars` | Series de sermons |
-| `events` | Evenements |
-| `announcements` | Annonces |
-| `members` | Membres de l'eglise |
-| `photos` | Galerie photos |
-| `admin_settings` | Configuration admin |
-
-### Storage Buckets
-
-- `sermons-audio` - Fichiers audio des sermons
-- `sermon-covers` - Images de couverture
-- `speakers-photos` - Photos des orateurs
-- `events-images` - Images des evenements
+---
 
 ## Depannage
 
 ### L'app ne se connecte pas a Supabase
 
-1. Verifiez que le fichier `.env` existe et contient les bonnes cles
-2. Redemarrez le serveur Metro : `npm start -- --clear`
+1. Verifiez le fichier `.env` :
+   ```bash
+   cat .env
+   ```
+2. Redemarrez avec cache vide :
+   ```bash
+   npm start -- --clear
+   ```
 
 ### Erreur "Unable to resolve module"
 
 ```bash
-# Nettoyer le cache et reinstaller
 rm -rf node_modules
+rm -rf .expo
 npm install
 npm start -- --clear
 ```
 
 ### Expo Go ne trouve pas le serveur
 
-1. Verifiez que votre telephone et PC sont sur le meme reseau Wi-Fi
-2. Utilisez le mode tunnel : `npx expo start --tunnel`
+1. Verifiez que les deux appareils sont sur le meme Wi-Fi
+2. Utilisez le mode tunnel :
+   ```bash
+   npx expo start --tunnel
+   ```
 
-### Build Android/iOS echoue
+### Erreur de build iOS/Android
 
 ```bash
-# Nettoyer les builds natifs
 npx expo prebuild --clean
+npm run ios  # ou android
 ```
+
+### Audio ne joue pas
+
+1. Verifiez les permissions dans `app.json`
+2. Sur iOS Simulator, le son peut etre mute
+3. Verifiez que l'URL audio est accessible
+
+### Telechargements echouent
+
+1. Verifiez la connexion internet
+2. Verifiez l'espace disque disponible
+3. L'URL audio doit etre HTTPS
+
+---
 
 ## Contribution
 
+### Workflow Git
+
 1. Forkez le projet
-2. Creez une branche (`git checkout -b feature/ma-fonctionnalite`)
-3. Committez vos changements (`git commit -m 'feat: Ajout de ma fonctionnalite'`)
-4. Pushez la branche (`git push origin feature/ma-fonctionnalite`)
+2. Creez une branche :
+   ```bash
+   git checkout -b feature/ma-fonctionnalite
+   ```
+3. Commitez vos changements :
+   ```bash
+   git commit -m 'feat: Ajout de ma fonctionnalite'
+   ```
+4. Pushez la branche :
+   ```bash
+   git push origin feature/ma-fonctionnalite
+   ```
 5. Ouvrez une Pull Request
 
 ### Conventions de Commit
 
-- `feat:` Nouvelle fonctionnalite
-- `fix:` Correction de bug
-- `docs:` Documentation
-- `style:` Formatage (pas de changement de code)
-- `refactor:` Refactorisation
-- `test:` Ajout de tests
-- `chore:` Maintenance
+| Prefix | Description |
+|--------|-------------|
+| `feat:` | Nouvelle fonctionnalite |
+| `fix:` | Correction de bug |
+| `docs:` | Documentation |
+| `style:` | Formatage (pas de changement de code) |
+| `refactor:` | Refactorisation |
+| `test:` | Ajout de tests |
+| `chore:` | Maintenance |
+
+### Standards de Code
+
+- TypeScript strict mode
+- ESLint + Prettier (auto-fix au commit)
+- Pas de `any` dans le code
+- Nommage en camelCase (variables, fonctions)
+- Nommage en PascalCase (composants, types)
+
+---
 
 ## Licence
 
@@ -258,4 +686,4 @@ Ce projet est prive et reserve a l'usage de l'Eglise EMCR.
 
 ---
 
-Developpe avec par l'equipe EMCR
+Developpe avec mass par l'equipe EMCR
