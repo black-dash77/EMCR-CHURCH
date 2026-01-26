@@ -188,6 +188,12 @@
       </svg>
     );
 
+    const BellIcon = () => (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+      </svg>
+    );
+
     const MINISTRY_ICONS = {
       'musical-note': MusicalNoteIcon,
       'users': UsersIcon,
@@ -247,6 +253,8 @@
       const [seminars, setSeminars] = useState([]);
       const [settings, setSettings] = useState(null);
       const [churchInfo, setChurchInfo] = useState(null);
+      const [notificationLogs, setNotificationLogs] = useState([]);
+      const [sundaySettings, setSundaySettings] = useState(null);
 
       useEffect(() => {
         document.documentElement.classList.toggle('dark', darkMode);
@@ -317,6 +325,24 @@
             const { data: churchInfoData } = await sb.from('church_info').select('*').single();
             if (churchInfoData) {
               setChurchInfo(churchInfoData);
+            }
+
+            // Charger les logs de notifications
+            const { data: notificationLogsData } = await sb.from('notification_logs').select('*').order('created_at', { ascending: false }).limit(50);
+            if (notificationLogsData) setNotificationLogs(notificationLogsData);
+
+            // Charger les paramètres de notification du dimanche
+            const { data: sundaySettingsData } = await sb.from('sunday_notification_settings').select('*').eq('id', 'default').single();
+            if (sundaySettingsData) {
+              setSundaySettings(sundaySettingsData);
+            } else {
+              setSundaySettings({
+                id: 'default',
+                enabled: true,
+                notification_time: '09:00:00',
+                title: 'Culte du Dimanche',
+                body: 'Rejoignez-nous ce dimanche pour le culte. Que Dieu vous bénisse!'
+              });
             }
 
             sermonsChannel = sb.channel('sermons-admin').on('postgres_changes', { event: '*', schema: 'public', table: 'sermons' }, (payload) => {
@@ -420,6 +446,8 @@
         seminars, setSeminars,
         settings, setSettings,
         churchInfo, setChurchInfo,
+        notificationLogs, setNotificationLogs,
+        sundaySettings, setSundaySettings,
         loading
       };
 
@@ -448,6 +476,7 @@
                     {activeSection === 'medias' && <MediasSection />}
                     {activeSection === 'messages' && <MessagesSection />}
                     {activeSection === 'ministries' && <MinistriesSection />}
+                    {activeSection === 'notifications' && <NotificationsSection />}
                     {activeSection === 'churchInfo' && <ChurchInfoSection />}
                     {activeSection === 'settings' && <SettingsSection />}
                   </>
@@ -463,7 +492,7 @@
     // SIDEBAR COMPONENT
     // ============================================
     function Sidebar({ activeSection, setActiveSection }) {
-      const { sermons, events, announcements, members, medias, messages, ministries, speakers, seminars } = useAdmin();
+      const { sermons, events, announcements, members, medias, messages, ministries, speakers, seminars, notificationLogs } = useAdmin();
 
       const sections = [
         { id: 'sermons', icon: <MicrophoneIcon />, label: 'Prédications', count: sermons.length },
@@ -475,6 +504,7 @@
         { id: 'medias', icon: <CameraIcon />, label: 'Médias', count: medias.length },
         { id: 'ministries', icon: <MusicalNoteIcon />, label: 'Ministères', count: ministries.length },
         { id: 'messages', icon: <ChatIcon />, label: 'Messages', count: messages.length },
+        { id: 'notifications', icon: <BellIcon />, label: 'Notifications', count: notificationLogs.length },
         { id: 'churchInfo', icon: <ChurchIcon />, label: 'Notre Église', count: null },
         { id: 'settings', icon: <CogIcon />, label: 'Paramètres', count: null },
       ];
@@ -2875,6 +2905,8 @@
       const [showModal, setShowModal] = useState(false);
       const [editingItem, setEditingItem] = useState(null);
       const [searchTerm, setSearchTerm] = useState('');
+      const [showSermonModal, setShowSermonModal] = useState(false);
+      const [selectedSpeakerForSermon, setSelectedSpeakerForSermon] = useState(null);
 
       // Calculate stats for each speaker
       const speakerStats = useMemo(() => {
@@ -3000,19 +3032,27 @@
                   )}
 
                   {/* Actions */}
-                  <div className="p-2 flex items-center gap-1 border-t border-slate-200 dark:border-slate-800">
+                  <div className="p-2 flex flex-col gap-1 border-t border-slate-200 dark:border-slate-800">
                     <button
-                      onClick={() => { setEditingItem(speaker); setShowModal(true); }}
-                      className="flex-1 px-2 py-1.5 text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-700"
+                      onClick={() => { setSelectedSpeakerForSermon(speaker); setShowSermonModal(true); }}
+                      className="w-full px-2 py-1.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded hover:bg-green-200 dark:hover:bg-green-900/50 flex items-center justify-center gap-1"
                     >
-                      Éditer
+                      <MicrophoneIcon /> Ajouter prédication
                     </button>
-                    <button
-                      onClick={() => handleDelete(speaker.id)}
-                      className="px-2 py-1.5 text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-900/50"
-                    >
-                      ✕
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => { setEditingItem(speaker); setShowModal(true); }}
+                        className="flex-1 px-2 py-1.5 text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-700"
+                      >
+                        Éditer
+                      </button>
+                      <button
+                        onClick={() => handleDelete(speaker.id)}
+                        className="px-2 py-1.5 text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-900/50"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -3020,6 +3060,7 @@
           </div>
 
           {showModal && <SpeakerModal item={editingItem} onClose={() => setShowModal(false)} />}
+          {showSermonModal && <SermonModal item={{ speaker_id: selectedSpeakerForSermon?.id, speaker: selectedSpeakerForSermon?.name }} onClose={() => { setShowSermonModal(false); setSelectedSpeakerForSermon(null); }} />}
         </div>
       );
     }
@@ -3255,6 +3296,8 @@
       const [showModal, setShowModal] = useState(false);
       const [editingItem, setEditingItem] = useState(null);
       const [searchTerm, setSearchTerm] = useState('');
+      const [showSermonModal, setShowSermonModal] = useState(false);
+      const [selectedSeminarForSermon, setSelectedSeminarForSermon] = useState(null);
 
       const filtered = useMemo(() => {
         if (!searchTerm) return seminars;
@@ -3321,6 +3364,14 @@
                       <span>{formatDate(seminar.end_date)}</span>
                     )}
                   </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <button
+                      onClick={() => { setSelectedSeminarForSermon(seminar); setShowSermonModal(true); }}
+                      className="flex-1 px-3 py-1.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded hover:bg-green-200 dark:hover:bg-green-900/50 flex items-center justify-center gap-1"
+                    >
+                      <MicrophoneIcon /> Ajouter prédication
+                    </button>
+                  </div>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => { setEditingItem(seminar); setShowModal(true); }}
@@ -3341,6 +3392,7 @@
           </div>
 
           {showModal && <SeminarModal item={editingItem} speakers={speakers} onClose={() => setShowModal(false)} />}
+          {showSermonModal && <SermonModal item={{ seminar_id: selectedSeminarForSermon?.id }} onClose={() => { setShowSermonModal(false); setSelectedSeminarForSermon(null); }} />}
         </div>
       );
     }
@@ -3998,6 +4050,437 @@
               </div>
             </div>
           </div>
+        </div>
+      );
+    }
+
+    // ============================================
+    // NOTIFICATIONS SECTION
+    // ============================================
+    function NotificationsSection() {
+      const { sermons, events, announcements, seminars, notificationLogs, setNotificationLogs, sundaySettings, setSundaySettings } = useAdmin();
+      const [sending, setSending] = useState(false);
+      const [savingSettings, setSavingSettings] = useState(false);
+      const [activeTab, setActiveTab] = useState('send'); // 'send' | 'sunday' | 'history'
+
+      // Form state for manual notification
+      const [notifType, setNotifType] = useState('sermon');
+      const [selectedContent, setSelectedContent] = useState('');
+      const [customTitle, setCustomTitle] = useState('');
+      const [customBody, setCustomBody] = useState('');
+
+      // Sunday settings form
+      const [sundayForm, setSundayForm] = useState(sundaySettings || {
+        enabled: true,
+        notification_time: '09:00:00',
+        title: 'Culte du Dimanche',
+        body: 'Rejoignez-nous ce dimanche pour le culte. Que Dieu vous bénisse!'
+      });
+
+      useEffect(() => {
+        if (sundaySettings) {
+          setSundayForm(sundaySettings);
+        }
+      }, [sundaySettings]);
+
+      // Get content options based on type
+      const getContentOptions = () => {
+        switch (notifType) {
+          case 'sermon':
+            return sermons.slice(0, 20).map(s => ({ id: s.id, label: s.title }));
+          case 'event':
+            return events.slice(0, 20).map(e => ({ id: e.id, label: e.title }));
+          case 'announcement':
+            return announcements.slice(0, 20).map(a => ({ id: a.id, label: a.title }));
+          case 'seminar':
+            return seminars.slice(0, 20).map(s => ({ id: s.id, label: s.title }));
+          default:
+            return [];
+        }
+      };
+
+      // Auto-fill title and body when content is selected
+      useEffect(() => {
+        if (!selectedContent || notifType === 'custom') return;
+
+        let content;
+        switch (notifType) {
+          case 'sermon':
+            content = sermons.find(s => s.id === selectedContent);
+            if (content) {
+              setCustomTitle(`Nouvelle prédication : ${content.title}`);
+              setCustomBody(content.speaker ? `Par ${content.speaker}` : 'Écoutez maintenant');
+            }
+            break;
+          case 'event':
+            content = events.find(e => e.id === selectedContent);
+            if (content) {
+              setCustomTitle(`Événement : ${content.title}`);
+              setCustomBody(content.description?.slice(0, 100) || 'Découvrez cet événement');
+            }
+            break;
+          case 'announcement':
+            content = announcements.find(a => a.id === selectedContent);
+            if (content) {
+              setCustomTitle(content.title);
+              setCustomBody(content.content?.slice(0, 100) || '');
+            }
+            break;
+          case 'seminar':
+            content = seminars.find(s => s.id === selectedContent);
+            if (content) {
+              setCustomTitle(`Nouveau séminaire : ${content.title}`);
+              setCustomBody(content.description?.slice(0, 100) || 'Découvrez ce séminaire');
+            }
+            break;
+        }
+      }, [selectedContent, notifType, sermons, events, announcements, seminars]);
+
+      const handleSendNotification = async () => {
+        if (!customTitle || !customBody) {
+          alert('Veuillez remplir le titre et le message');
+          return;
+        }
+
+        if (!confirm(`Envoyer la notification "${customTitle}" à tous les appareils ?`)) return;
+
+        setSending(true);
+        try {
+          const sb = initSupabase();
+
+          const response = await fetch(`${SUPABASE_URL}/functions/v1/send-push-notification`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+              title: customTitle,
+              body: customBody,
+              type: notifType,
+              contentId: selectedContent || undefined,
+            }),
+          });
+
+          const result = await response.json();
+
+          if (result.error) {
+            throw new Error(result.error);
+          }
+
+          alert(`Notification envoyée!\nEnvoyés: ${result.sent}\nÉchecs: ${result.failed}`);
+
+          // Refresh logs
+          const { data: logsData } = await sb.from('notification_logs').select('*').order('created_at', { ascending: false }).limit(50);
+          if (logsData) setNotificationLogs(logsData);
+
+          // Reset form
+          setSelectedContent('');
+          setCustomTitle('');
+          setCustomBody('');
+        } catch (error) {
+          console.error('Error sending notification:', error);
+          alert('Erreur: ' + error.message);
+        } finally {
+          setSending(false);
+        }
+      };
+
+      const handleSaveSundaySettings = async () => {
+        setSavingSettings(true);
+        try {
+          const sb = initSupabase();
+
+          const { error } = await sb
+            .from('sunday_notification_settings')
+            .upsert({
+              id: 'default',
+              ...sundayForm,
+              updated_at: new Date().toISOString()
+            });
+
+          if (error) throw error;
+
+          setSundaySettings(sundayForm);
+          alert('Paramètres sauvegardés!');
+        } catch (error) {
+          console.error('Error saving sunday settings:', error);
+          alert('Erreur: ' + error.message);
+        } finally {
+          setSavingSettings(false);
+        }
+      };
+
+      const getTypeLabel = (type) => {
+        const labels = {
+          sermon: 'Prédication',
+          event: 'Événement',
+          announcement: 'Annonce',
+          seminar: 'Séminaire',
+          sunday_service: 'Culte Dominical',
+          custom: 'Personnalisé'
+        };
+        return labels[type] || type;
+      };
+
+      const getTypeColor = (type) => {
+        const colors = {
+          sermon: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+          event: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+          announcement: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+          seminar: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+          sunday_service: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+          custom: 'bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-300'
+        };
+        return colors[type] || colors.custom;
+      };
+
+      return (
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Notifications Push</h2>
+              <p className="text-slate-600 dark:text-slate-400 mt-1">Envoyez des notifications aux utilisateurs de l'application</p>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex gap-2 mb-6">
+            <button
+              onClick={() => setActiveTab('send')}
+              className={cls(
+                "px-4 py-2 rounded-lg font-medium transition",
+                activeTab === 'send'
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+              )}
+            >
+              Envoyer
+            </button>
+            <button
+              onClick={() => setActiveTab('sunday')}
+              className={cls(
+                "px-4 py-2 rounded-lg font-medium transition",
+                activeTab === 'sunday'
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+              )}
+            >
+              Dimanche
+            </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className={cls(
+                "px-4 py-2 rounded-lg font-medium transition",
+                activeTab === 'history'
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+              )}
+            >
+              Historique
+            </button>
+          </div>
+
+          {/* Send Tab */}
+          {activeTab === 'send' && (
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Envoyer une notification</h3>
+
+              <div className="space-y-4">
+                {/* Type Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Type de notification</label>
+                  <select
+                    value={notifType}
+                    onChange={(e) => { setNotifType(e.target.value); setSelectedContent(''); }}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                  >
+                    <option value="sermon">Prédication</option>
+                    <option value="event">Événement</option>
+                    <option value="announcement">Annonce</option>
+                    <option value="seminar">Séminaire</option>
+                    <option value="custom">Personnalisé</option>
+                  </select>
+                </div>
+
+                {/* Content Selection (if not custom) */}
+                {notifType !== 'custom' && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      Sélectionner le contenu (optionnel)
+                    </label>
+                    <select
+                      value={selectedContent}
+                      onChange={(e) => setSelectedContent(e.target.value)}
+                      className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                    >
+                      <option value="">-- Sélectionner --</option>
+                      {getContentOptions().map(opt => (
+                        <option key={opt.id} value={opt.id}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Title */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Titre *</label>
+                  <input
+                    type="text"
+                    value={customTitle}
+                    onChange={(e) => setCustomTitle(e.target.value)}
+                    placeholder="Titre de la notification"
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                {/* Body */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Message *</label>
+                  <textarea
+                    value={customBody}
+                    onChange={(e) => setCustomBody(e.target.value)}
+                    placeholder="Contenu de la notification"
+                    rows={3}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                {/* Send Button */}
+                <button
+                  onClick={handleSendNotification}
+                  disabled={sending || !customTitle || !customBody}
+                  className={cls(
+                    "w-full py-3 rounded-lg font-semibold transition",
+                    sending || !customTitle || !customBody
+                      ? "bg-slate-300 dark:bg-slate-700 text-slate-500 cursor-not-allowed"
+                      : "bg-blue-600 text-white hover:bg-blue-700"
+                  )}
+                >
+                  {sending ? 'Envoi en cours...' : 'Envoyer la notification'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Sunday Tab */}
+          {activeTab === 'sunday' && (
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Notification du Dimanche</h3>
+              <p className="text-slate-600 dark:text-slate-400 text-sm mb-6">
+                Cette notification est envoyée automatiquement chaque dimanche.
+              </p>
+
+              <div className="space-y-4">
+                {/* Enable/Disable */}
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="sundayEnabled"
+                    checked={sundayForm.enabled}
+                    onChange={(e) => setSundayForm(prev => ({ ...prev, enabled: e.target.checked }))}
+                    className="w-5 h-5 rounded border-slate-300"
+                  />
+                  <label htmlFor="sundayEnabled" className="text-slate-700 dark:text-slate-300 font-medium">
+                    Activer la notification du dimanche
+                  </label>
+                </div>
+
+                {/* Time */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Heure d'envoi
+                  </label>
+                  <input
+                    type="time"
+                    value={sundayForm.notification_time?.slice(0, 5) || '09:00'}
+                    onChange={(e) => setSundayForm(prev => ({ ...prev, notification_time: e.target.value + ':00' }))}
+                    className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                {/* Title */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Titre</label>
+                  <input
+                    type="text"
+                    value={sundayForm.title}
+                    onChange={(e) => setSundayForm(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Culte du Dimanche"
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                {/* Body */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Message</label>
+                  <textarea
+                    value={sundayForm.body}
+                    onChange={(e) => setSundayForm(prev => ({ ...prev, body: e.target.value }))}
+                    placeholder="Rejoignez-nous ce dimanche..."
+                    rows={3}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                {/* Save Button */}
+                <button
+                  onClick={handleSaveSundaySettings}
+                  disabled={savingSettings}
+                  className={cls(
+                    "w-full py-3 rounded-lg font-semibold transition",
+                    savingSettings
+                      ? "bg-slate-300 dark:bg-slate-700 text-slate-500"
+                      : "bg-green-600 text-white hover:bg-green-700"
+                  )}
+                >
+                  {savingSettings ? 'Sauvegarde...' : 'Sauvegarder les paramètres'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* History Tab */}
+          {activeTab === 'history' && (
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+              <div className="p-4 border-b border-slate-200 dark:border-slate-800">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Historique des notifications</h3>
+              </div>
+
+              {notificationLogs.length === 0 ? (
+                <div className="p-8 text-center text-slate-500">
+                  Aucune notification envoyée
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {notificationLogs.map(log => (
+                    <div key={log.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={cls("px-2 py-0.5 rounded-full text-xs font-medium", getTypeColor(log.type))}>
+                              {getTypeLabel(log.type)}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              {formatDateTime(log.created_at)}
+                            </span>
+                          </div>
+                          <h4 className="font-medium text-slate-900 dark:text-white truncate">{log.title}</h4>
+                          <p className="text-sm text-slate-600 dark:text-slate-400 truncate">{log.body}</p>
+                        </div>
+                        <div className="text-right text-sm">
+                          <div className="text-green-600 dark:text-green-400">{log.sent_count} envoyés</div>
+                          {log.failed_count > 0 && (
+                            <div className="text-red-600 dark:text-red-400">{log.failed_count} échecs</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       );
     }

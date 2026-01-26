@@ -208,7 +208,7 @@ export default function SermonsScreen() {
   );
 
   // Search results view
-  if (searchQuery && isSearchFocused) {
+  if (isSearchFocused) {
     return (
       <View style={[styles.container, { backgroundColor: themeColors.background }]}>
         {/* Search Header */}
@@ -231,9 +231,16 @@ export default function SermonsScreen() {
         </View>
 
         <FlatList
-          data={searchResults}
+          data={searchQuery ? searchResults : sermons}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + 80 }}
+          contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + 80, paddingHorizontal: spacing[4] }}
+          ListHeaderComponent={
+            !searchQuery ? (
+              <Text style={[styles.searchSuggestionTitle, { color: themeColors.textSecondary }]}>
+                Toutes les prédications
+              </Text>
+            ) : null
+          }
           renderItem={({ item, index }) => (
             <SermonListItem
               sermon={item}
@@ -241,15 +248,17 @@ export default function SermonsScreen() {
               themeColors={themeColors}
               isPlaying={currentSermon?.id === item.id && isPlaying}
               onPress={() => router.push(`/sermon/${item.id}`)}
-              onPlay={() => handlePlaySermon(item, searchResults, index)}
+              onPlay={() => handlePlaySermon(item, searchQuery ? searchResults : sermons, index)}
             />
           )}
           ListEmptyComponent={
-            <View style={styles.emptySearch}>
-              <Text style={[styles.emptySearchText, { color: themeColors.textSecondary }]}>
-                Aucun resultat pour "{searchQuery}"
-              </Text>
-            </View>
+            searchQuery ? (
+              <View style={styles.emptySearch}>
+                <Text style={[styles.emptySearchText, { color: themeColors.textSecondary }]}>
+                  Aucun résultat pour "{searchQuery}"
+                </Text>
+              </View>
+            ) : null
           }
         />
       </View>
@@ -959,6 +968,12 @@ const styles = StyleSheet.create({
   },
   emptySearchText: {
     ...typography.bodyMedium,
+  },
+  searchSuggestionTitle: {
+    ...typography.labelMedium,
+    fontWeight: '600',
+    marginBottom: spacing[3],
+    marginTop: spacing[2],
   },
 
   // Filter Chips

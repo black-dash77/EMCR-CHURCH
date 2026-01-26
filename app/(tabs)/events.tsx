@@ -85,7 +85,7 @@ export default function EventsScreen() {
 
   const filteredEvents = selectedDate
     ? events.filter((e) => e.date.split('T')[0] === selectedDate)
-    : events.filter((e) => new Date(e.date) >= new Date());
+    : events;
 
   const formatTime = (time: string | null) => {
     if (!time) return '';
@@ -113,7 +113,7 @@ export default function EventsScreen() {
     />
   );
 
-  const upcomingEventsCount = events.filter((e) => new Date(e.date) >= new Date()).length;
+  const totalEventsCount = events.length;
   const headerTotalHeight = HEADER_HEIGHT + insets.top;
 
   const ListHeaderComponent = (
@@ -204,10 +204,10 @@ export default function EventsScreen() {
               <CalendarDays size={40} color={themeColors.textTertiary} />
             </View>
             <Text style={[styles.emptyTitle, { color: themeColors.text }]}>
-              Aucun événement {selectedDate ? 'pour cette date' : 'à venir'}
+              Aucun événement {selectedDate ? 'pour cette date' : ''}
             </Text>
             <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>
-              {selectedDate ? 'Essayez une autre date' : 'Revenez bientôt pour les prochains événements'}
+              {selectedDate ? 'Essayez une autre date' : 'Aucun événement enregistré'}
             </Text>
           </Animated.View>
         }
@@ -223,7 +223,7 @@ export default function EventsScreen() {
             <View>
               <Text style={[styles.title, { color: themeColors.text }]}>Événements</Text>
               <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
-                {upcomingEventsCount} événement{upcomingEventsCount > 1 ? 's' : ''} à venir
+                {totalEventsCount} événement{totalEventsCount > 1 ? 's' : ''}
               </Text>
             </View>
             <Pressable
