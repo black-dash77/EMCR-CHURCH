@@ -31,6 +31,7 @@ import {
   Music,
   Check,
   Video,
+  Bell,
 } from 'lucide-react-native';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
@@ -113,6 +114,403 @@ interface DataItem {
   [key: string]: string | number | boolean | Speaker | undefined;
 }
 
+
+// Supabase config for notifications
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+
+// Notifications Section Component
+interface NotificationsSectionProps {
+  themeColors: any;
+  insets: { top: number; bottom: number };
+  onBack: () => void;
+  sermons: DataItem[];
+}
+
+function NotificationsSection({ themeColors, insets, onBack, sermons }: NotificationsSectionProps) {
+  const [sending, setSending] = useState(false);
+  const [notifType, setNotifType] = useState<'sermon' | 'custom'>('sermon');
+  const [selectedSermon, setSelectedSermon] = useState('');
+  const [customTitle, setCustomTitle] = useState('');
+  const [customBody, setCustomBody] = useState('');
+  const [recentSermons, setRecentSermons] = useState<DataItem[]>([]);
+
+  // Load recent sermons on mount
+  useEffect(() => {
+    loadRecentSermons();
+  }, []);
+
+  const loadRecentSermons = async () => {
+    try {
+      const { data } = await supabase
+        .from('sermons')
+        .select('id, title, speaker')
+        .order('date', { ascending: false })
+        .limit(20);
+      if (data) setRecentSermons(data);
+    } catch (error) {
+      console.error('Error loading sermons:', error);
+    }
+  };
+
+  // Auto-fill when sermon selected
+  useEffect(() => {
+    if (selectedSermon && notifType === 'sermon') {
+      const sermon = recentSermons.find(s => s.id === selectedSermon);
+      if (sermon) {
+        setCustomTitle(`Nouvelle predication : ${sermon.title}`);
+        setCustomBody(sermon.speaker ? `Par ${sermon.speaker}` : 'Ecoutez maintenant');
+      }
+    }
+  }, [selectedSermon, notifType, recentSermons]);
+
+  const handleSendNotification = async () => {
+    if (!customTitle || !customBody) {
+      Alert.alert('Erreur', 'Veuillez remplir le titre et le message');
+      return;
+    }
+
+    Alert.alert(
+      'Confirmer',
+      `Envoyer la notification "${customTitle}" a tous les appareils ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Envoyer',
+          onPress: async () => {
+            setSending(true);
+            try {
+              const payload: any = {
+                title: customTitle,
+                body: customBody,
+                type: notifType === 'sermon' ? 'sermon' : 'custom',
+              };
+
+              if (notifType === 'sermon' && selectedSermon) {
+                payload.contentId = selectedSermon;
+                payload.data = {
+                  sermon_id: selectedSermon,
+                };
+              }
+
+              const response = await fetch(`${SUPABASE_URL}/functions/v1/send-push-notification`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                },
+                body: JSON.stringify(payload),
+              });
+
+              const result = await response.json();
+
+              if (!response.ok) {
+                throw new Error(result.error || 'Erreur lors de l\'envoi');
+              }
+
+              Alert.alert(
+                'Succes',
+                `Notification envoyee a ${result.sent || 0} appareil(s)`,
+                [{ text: 'OK' }]
+              );
+
+              // Reset form
+              setSelectedSermon('');
+              setCustomTitle('');
+              setCustomBody('');
+            } catch (error: any) {
+              console.error('Error sending notification:', error);
+              Alert.alert('Erreur', error.message || 'Impossible d\'envoyer la notification');
+            } finally {
+              setSending(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  return (
+    <View style={[notifStyles.container, { backgroundColor: themeColors.background }]}>
+      {/* Header */}
+      <View style={[notifStyles.header, { paddingTop: insets.top + 10, backgroundColor: themeColors.background }]}>
+        <Pressable onPress={onBack} style={notifStyles.backButton}>
+          <ArrowLeft size={24} color={themeColors.text} />
+        </Pressable>
+        <View style={notifStyles.headerTitleContainer}>
+          <Text style={[notifStyles.title, { color: themeColors.text }]}>Notifications Push</Text>
+          <Text style={[notifStyles.subtitle, { color: themeColors.textSecondary }]}>
+            Envoyez des notifications aux utilisateurs
+          </Text>
+        </View>
+      </View>
+
+      <ScrollView
+        style={notifStyles.content}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+      >
+        {/* Type Selection */}
+        <View style={notifStyles.section}>
+          <Text style={[notifStyles.sectionTitle, { color: themeColors.text }]}>Type de notification</Text>
+          <View style={notifStyles.typeButtons}>
+            <Pressable
+              style={[
+                notifStyles.typeButton,
+                { backgroundColor: notifType === 'sermon' ? '#3B82F6' : themeColors.card },
+              ]}
+              onPress={() => setNotifType('sermon')}
+            >
+              <Mic size={18} color={notifType === 'sermon' ? '#FFFFFF' : themeColors.text} />
+              <Text style={[
+                notifStyles.typeButtonText,
+                { color: notifType === 'sermon' ? '#FFFFFF' : themeColors.text },
+              ]}>Predication</Text>
+            </Pressable>
+            <Pressable
+              style={[
+                notifStyles.typeButton,
+                { backgroundColor: notifType === 'custom' ? '#3B82F6' : themeColors.card },
+              ]}
+              onPress={() => {
+                setNotifType('custom');
+                setSelectedSermon('');
+                setCustomTitle('');
+                setCustomBody('');
+              }}
+            >
+              <Edit3 size={18} color={notifType === 'custom' ? '#FFFFFF' : themeColors.text} />
+              <Text style={[
+                notifStyles.typeButtonText,
+                { color: notifType === 'custom' ? '#FFFFFF' : themeColors.text },
+              ]}>Personnalise</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Sermon Selection */}
+        {notifType === 'sermon' && (
+          <View style={notifStyles.section}>
+            <Text style={[notifStyles.sectionTitle, { color: themeColors.text }]}>Selectionner une predication</Text>
+            <View style={[notifStyles.pickerContainer, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+              <ScrollView style={{ maxHeight: 200 }}>
+                {recentSermons.map((sermon) => (
+                  <Pressable
+                    key={sermon.id}
+                    style={[
+                      notifStyles.sermonItem,
+                      selectedSermon === sermon.id && { backgroundColor: '#DBEAFE' },
+                    ]}
+                    onPress={() => setSelectedSermon(sermon.id)}
+                  >
+                    <View style={notifStyles.radioCircle}>
+                      {selectedSermon === sermon.id && <View style={notifStyles.radioSelected} />}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[notifStyles.sermonTitle, { color: themeColors.text }]} numberOfLines={1}>
+                        {sermon.title}
+                      </Text>
+                      {sermon.speaker && (
+                        <Text style={[notifStyles.sermonSpeaker, { color: themeColors.textSecondary }]}>
+                          {typeof sermon.speaker === 'string' ? sermon.speaker : ''}
+                        </Text>
+                      )}
+                    </View>
+                  </Pressable>
+                ))}
+                {recentSermons.length === 0 && (
+                  <Text style={[notifStyles.emptyText, { color: themeColors.textSecondary }]}>
+                    Aucune predication disponible
+                  </Text>
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        )}
+
+        {/* Title & Body */}
+        <View style={notifStyles.section}>
+          <Text style={[notifStyles.sectionTitle, { color: themeColors.text }]}>Titre</Text>
+          <TextInput
+            style={[notifStyles.input, { backgroundColor: themeColors.card, borderColor: themeColors.border, color: themeColors.text }]}
+            placeholder="Titre de la notification"
+            placeholderTextColor={themeColors.textTertiary}
+            value={customTitle}
+            onChangeText={setCustomTitle}
+          />
+        </View>
+
+        <View style={notifStyles.section}>
+          <Text style={[notifStyles.sectionTitle, { color: themeColors.text }]}>Message</Text>
+          <TextInput
+            style={[notifStyles.textArea, { backgroundColor: themeColors.card, borderColor: themeColors.border, color: themeColors.text }]}
+            placeholder="Contenu de la notification"
+            placeholderTextColor={themeColors.textTertiary}
+            value={customBody}
+            onChangeText={setCustomBody}
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+          />
+        </View>
+
+        {/* Send Button */}
+        <Pressable
+          style={[
+            notifStyles.sendButton,
+            (!customTitle || !customBody || sending) && { opacity: 0.5 },
+          ]}
+          onPress={handleSendNotification}
+          disabled={!customTitle || !customBody || sending}
+        >
+          <LinearGradient
+            colors={['#EF4444', '#DC2626']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={notifStyles.sendButtonGradient}
+          >
+            {sending ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Bell size={20} color="#FFFFFF" />
+                <Text style={notifStyles.sendButtonText}>Envoyer la notification</Text>
+              </>
+            )}
+          </LinearGradient>
+        </Pressable>
+      </ScrollView>
+    </View>
+  );
+}
+
+const notifStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+  headerTitleContainer: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  subtitle: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  content: {
+    flex: 1,
+    padding: 16,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  typeButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  typeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  typeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  pickerContainer: {
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  sermonItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  radioCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#3B82F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioSelected: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#3B82F6',
+  },
+  sermonTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  sermonSpeaker: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  emptyText: {
+    textAlign: 'center',
+    padding: 20,
+    fontSize: 14,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 15,
+  },
+  textArea: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 15,
+    minHeight: 100,
+  },
+  sendButton: {
+    marginTop: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  sendButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+  },
+  sendButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});
 
 // Storage bucket mapping
 const STORAGE_BUCKETS: Record<string, string> = {
@@ -265,6 +663,11 @@ export default function AdminScreen() {
         case 'seminars':
           query = supabase.from('seminars').select('*, speaker:speakers(*)').order('created_at', { ascending: false });
           break;
+        case 'notifications':
+          // Section notifications - pas de données à charger
+          setData([]);
+          setLoading(false);
+          return;
         default:
           setData([]);
           setLoading(false);
@@ -624,11 +1027,13 @@ export default function AdminScreen() {
     { id: 'sermons', icon: <Mic size={20} color="#FFFFFF" />, iconBg: '#3B82F6', label: 'Predications', description: 'Gerer les predications', count: counts.sermons },
     { id: 'speakers', icon: <UserCircle size={20} color="#FFFFFF" />, iconBg: '#8B5CF6', label: 'Orateurs', description: 'Gerer les orateurs', count: counts.speakers },
     { id: 'seminars', icon: <FolderOpen size={20} color="#FFFFFF" />, iconBg: '#EC4899', label: 'Seminaires', description: 'Gerer les seminaires', count: counts.seminars },
-    { id: 'events', icon: <Calendar size={20} color="#FFFFFF" />, iconBg: '#10B981', label: 'Evenements', description: 'Gerer les evenements', count: counts.events },
-    { id: 'announcements', icon: <Megaphone size={20} color="#FFFFFF" />, iconBg: '#F59E0B', label: 'Annonces', description: 'Gerer les annonces', count: counts.announcements },
-    { id: 'members', icon: <Users size={20} color="#FFFFFF" />, iconBg: '#6366F1', label: 'Membres', description: 'Gerer les membres', count: counts.members },
-    { id: 'photos', icon: <ImageIcon size={20} color="#FFFFFF" />, iconBg: '#14B8A6', label: 'Medias', description: 'Gerer les photos/videos', count: counts.photos },
-    { id: 'contact_messages', icon: <MessageSquare size={20} color="#FFFFFF" />, iconBg: '#EF4444', label: 'Messages', description: 'Messages de contact', count: counts.contact_messages },
+    { id: 'notifications', icon: <Bell size={20} color="#FFFFFF" />, iconBg: '#EF4444', label: 'Notifications', description: 'Envoyer des notifications push' },
+    // Sections cachées temporairement - à réactiver plus tard
+    // { id: 'events', icon: <Calendar size={20} color="#FFFFFF" />, iconBg: '#10B981', label: 'Evenements', description: 'Gerer les evenements', count: counts.events },
+    // { id: 'announcements', icon: <Megaphone size={20} color="#FFFFFF" />, iconBg: '#F59E0B', label: 'Annonces', description: 'Gerer les annonces', count: counts.announcements },
+    // { id: 'members', icon: <Users size={20} color="#FFFFFF" />, iconBg: '#6366F1', label: 'Membres', description: 'Gerer les membres', count: counts.members },
+    // { id: 'photos', icon: <ImageIcon size={20} color="#FFFFFF" />, iconBg: '#14B8A6', label: 'Medias', description: 'Gerer les photos/videos', count: counts.photos },
+    // { id: 'contact_messages', icon: <MessageSquare size={20} color="#FFFFFF" />, iconBg: '#EF4444', label: 'Messages', description: 'Messages de contact', count: counts.contact_messages },
   ];
 
   const getItemTitle = (item: DataItem): string => {
@@ -686,6 +1091,43 @@ export default function AdminScreen() {
 
   const renderSermonForm = () => (
     <>
+      {/* Content Type Selection */}
+      <View style={styles.formField}>
+        <Text style={[styles.formLabel, { color: themeColors.text }]}>
+          Type de contenu <Text style={{ color: '#EF4444' }}>*</Text>
+        </Text>
+        <View style={[styles.selectWrapper, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectScroll}>
+            {[
+              { id: 'sermon', label: 'Prédication', color: '#3B82F6' },
+              { id: 'adoration', label: 'Adoration', color: '#EC4899' },
+              { id: 'louange', label: 'Louange', color: '#8B5CF6' },
+            ].map((type) => (
+              <Pressable
+                key={type.id}
+                style={[
+                  styles.selectChip,
+                  { borderColor: themeColors.border },
+                  (formData.content_type || 'sermon') === type.id && { backgroundColor: type.color, borderColor: type.color },
+                ]}
+                onPress={() => setFormData(prev => ({ ...prev, content_type: type.id }))}
+              >
+                <Text style={[
+                  styles.selectChipText,
+                  { color: themeColors.text },
+                  (formData.content_type || 'sermon') === type.id && { color: '#FFFFFF' },
+                ]}>
+                  {type.label}
+                </Text>
+                {(formData.content_type || 'sermon') === type.id && (
+                  <Check size={14} color="#FFFFFF" />
+                )}
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+
       {/* Title */}
       <View style={styles.formField}>
         <Text style={[styles.formLabel, { color: themeColors.text }]}>
@@ -693,7 +1135,7 @@ export default function AdminScreen() {
         </Text>
         <TextInput
           style={[styles.formInput, { backgroundColor: themeColors.card, color: themeColors.text, borderColor: themeColors.border }]}
-          placeholder="Titre de la predication"
+          placeholder={formData.content_type === 'adoration' || formData.content_type === 'louange' ? "Titre du chant" : "Titre de la predication"}
           placeholderTextColor={themeColors.textTertiary}
           value={formData.title || ''}
           onChangeText={(text) => setFormData(prev => ({ ...prev, title: text }))}
@@ -1020,6 +1462,31 @@ export default function AdminScreen() {
               </>
             )}
           </Pressable>
+        )}
+      </View>
+
+      {/* YouTube URL - Recommended for faster streaming */}
+      <View style={styles.formField}>
+        <Text style={[styles.formLabel, { color: themeColors.text }]}>
+          Lien YouTube (recommande)
+        </Text>
+        <Text style={[styles.formHint, { color: themeColors.textTertiary }]}>
+          Plus rapide que l'upload video. Collez le lien YouTube de la predication.
+        </Text>
+        <TextInput
+          style={[styles.formInput, { backgroundColor: themeColors.card, color: themeColors.text, borderColor: themeColors.border }]}
+          placeholder="https://www.youtube.com/watch?v=..."
+          placeholderTextColor={themeColors.textTertiary}
+          value={formData.youtube_url || ''}
+          onChangeText={(text) => setFormData(prev => ({ ...prev, youtube_url: text }))}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+        />
+        {formData.youtube_url && (
+          <Text style={styles.linkedText}>
+            ✓ Lien YouTube ajoute
+          </Text>
         )}
       </View>
     </>
@@ -1627,12 +2094,12 @@ export default function AdminScreen() {
             </Pressable>
 
             <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.loginContent}>
-              <LinearGradient
-                colors={['#3B82F6', '#8B5CF6']}
-                style={styles.loginLogo}
-              >
-                <Shield size={40} color="#FFFFFF" />
-              </LinearGradient>
+              <View style={styles.loginLogoContainer}>
+                <Image
+                  source={require('../assets/icon.png')}
+                  style={styles.loginLogoImage}
+                />
+              </View>
 
               <Text style={[styles.loginTitle, { color: themeColors.text }]}>
                 Administration
@@ -1672,31 +2139,37 @@ export default function AdminScreen() {
               <Pressable
                 style={({ pressed }) => [
                   styles.loginButton,
+                  styles.loginButtonSolid,
                   { opacity: pressed ? 0.9 : 1 },
                 ]}
                 onPress={handleLogin}
                 disabled={authLoading}
               >
-                <LinearGradient
-                  colors={['#3B82F6', '#8B5CF6']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.loginButtonGradient}
-                >
-                  {authLoading ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <Text style={styles.loginButtonText}>Se connecter</Text>
-                      <ChevronRight size={20} color="#FFFFFF" />
-                    </>
-                  )}
-                </LinearGradient>
+                {authLoading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Text style={styles.loginButtonText}>Se connecter</Text>
+                    <ChevronRight size={20} color="#FFFFFF" />
+                  </>
+                )}
               </Pressable>
             </Animated.View>
           </ScrollView>
         </KeyboardAvoidingView>
       </View>
+    );
+  }
+
+  // Notifications Section View
+  if (activeSection === 'notifications') {
+    return (
+      <NotificationsSection
+        themeColors={themeColors}
+        insets={insets}
+        onBack={() => setActiveSection(null)}
+        sermons={data}
+      />
     );
   }
 
@@ -2028,6 +2501,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing[6],
   },
+  loginLogoContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginBottom: spacing[6],
+  },
+  loginLogoImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+  },
   loginTitle: {
     ...typography.headlineMedium,
     fontWeight: '700',
@@ -2062,6 +2547,15 @@ const styles = StyleSheet.create({
   loginButton: {
     width: '100%',
     marginTop: spacing[2],
+  },
+  loginButtonSolid: {
+    backgroundColor: '#1A4BFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing[4],
+    borderRadius: borderRadius.xl,
+    gap: spacing[2],
   },
   loginButtonGradient: {
     flexDirection: 'row',
@@ -2397,6 +2891,11 @@ const styles = StyleSheet.create({
     ...typography.titleSmall,
     fontWeight: '600',
     marginBottom: spacing[2],
+  },
+  formHint: {
+    ...typography.bodySmall,
+    marginBottom: spacing[2],
+    marginTop: -spacing[1],
   },
   toggleButton: {
     paddingVertical: spacing[1],

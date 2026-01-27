@@ -28,12 +28,46 @@ Les videos uploadees sur Supabase Storage peuvent prendre un temps tres long a c
 | **Bunny.net** | Tres economique, CDN rapide | Configuration technique requise |
 | **Mux** | API excellente, analytics | Payant |
 
-### Implementation Actuelle
+### Solution Implementee : Lien YouTube
 
-L'app gere les sermons avec `video_url` de la maniere suivante :
-1. Si le sermon a une `video_url` mais pas d'`audio_url`, il est affiche comme "Video"
-2. Un clic sur la miniature ouvre la video dans le navigateur externe (Safari/Chrome)
-3. Le navigateur gere le streaming et le plein ecran nativement
+Apres avoir teste plusieurs approches, la solution retenue est d'utiliser des **liens YouTube** pour les videos. Voici pourquoi et comment :
+
+#### Pourquoi YouTube ?
+
+1. **Streaming optimise** : YouTube utilise un CDN mondial et le streaming adaptatif (qualite auto selon connexion)
+2. **Gratuit** : Aucun cout de stockage ou de bande passante
+3. **Fiable** : Infrastructure Google, disponibilite 99.9%
+4. **Experience native** : L'app YouTube s'ouvre automatiquement sur mobile
+
+#### Comment ajouter une video YouTube
+
+1. **Uploadez votre video sur YouTube** (publique ou non-listee)
+2. **Copiez le lien** de la video (ex: `https://www.youtube.com/watch?v=ABC123`)
+3. **Dans l'admin**, collez ce lien dans le champ "URL Video YouTube"
+4. **Optionnel** : Ajoutez aussi un fichier audio pour l'ecoute hors-ligne
+
+#### Comportement dans l'app
+
+| Champ | Resultat |
+|-------|----------|
+| `audio_url` seulement | Sermon audio classique |
+| `youtube_url` seulement | Badge "Video", ouvre YouTube au clic |
+| Les deux | L'utilisateur peut choisir (audio dans l'app OU video sur YouTube) |
+
+#### Formats de lien YouTube acceptes
+
+```
+https://www.youtube.com/watch?v=VIDEO_ID
+https://youtu.be/VIDEO_ID
+https://youtube.com/watch?v=VIDEO_ID
+```
+
+### Implementation Technique
+
+L'app gere les sermons avec `youtube_url` de la maniere suivante :
+1. Si le sermon a une `youtube_url`, un badge "Video" est affiche
+2. Un clic sur le bouton video ouvre YouTube (app native ou navigateur)
+3. L'audio reste disponible dans le lecteur integre si `audio_url` est present
 
 Pour une meilleure experience, il est **fortement recommande** d'utiliser YouTube pour les videos et de stocker uniquement les fichiers audio sur Supabase Storage.
 

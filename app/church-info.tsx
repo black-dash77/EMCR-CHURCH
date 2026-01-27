@@ -211,12 +211,10 @@ export default function ChurchInfoScreen() {
           {churchInfo.cover_image ? (
             <Image source={{ uri: churchInfo.cover_image }} style={styles.heroImage} />
           ) : (
-            <LinearGradient
-              colors={[colors.primary[600], colors.primary[800]]}
-              style={styles.heroImage}
-            >
-              <Sparkles size={80} color="rgba(255,255,255,0.2)" />
-            </LinearGradient>
+            <Image
+              source={require('../assets/icon.png')}
+              style={styles.heroImageFallback}
+            />
           )}
           <LinearGradient
             colors={['transparent', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.9)']}
@@ -680,6 +678,11 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  heroImageFallback: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   heroGradient: {
     ...StyleSheet.absoluteFillObject,
