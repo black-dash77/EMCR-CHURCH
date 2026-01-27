@@ -31,6 +31,10 @@ class AudioService {
     this.statusCallback = callback;
   }
 
+  clearStatusCallback(): void {
+    this.statusCallback = null;
+  }
+
   private handlePlaybackStatusUpdate = (status: AVPlaybackStatus): void => {
     if (this.statusCallback) {
       this.statusCallback(status);

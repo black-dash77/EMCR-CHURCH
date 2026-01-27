@@ -8,7 +8,6 @@ import {
   Music,
   User,
   X,
-  Plus,
 } from 'lucide-react-native';
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -27,8 +26,6 @@ import {
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AddSermonsToSeminarModal } from '@/components/AddSermonsToSeminarModal';
-import { CreateSeminarModal } from '@/components/CreateSeminarModal';
 import { seminarsApi } from '@/services/api';
 import { colors, typography, spacing, borderRadius } from '@/theme';
 import type { Seminar } from '@/types';
@@ -48,9 +45,6 @@ export default function SeminarsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [addSermonsModalVisible, setAddSermonsModalVisible] = useState(false);
-  const [createSeminarModalVisible, setCreateSeminarModalVisible] = useState(false);
-  const [selectedSeminar, setSelectedSeminar] = useState<(Seminar & { sermon_count: number }) | null>(null);
 
   const loadSeminars = useCallback(async () => {
     try {
@@ -148,18 +142,6 @@ export default function SeminarsScreen() {
             <Music size={12} color="#FFFFFF" />
             <Text style={styles.countText}>{item.sermon_count}</Text>
           </View>
-
-          {/* Add Sermons Button */}
-          <Pressable
-            style={[styles.addButton, { backgroundColor: colors.primary[500] }]}
-            onPress={(e) => {
-              e.stopPropagation();
-              setSelectedSeminar(item);
-              setAddSermonsModalVisible(true);
-            }}
-          >
-            <Plus size={16} color="#FFFFFF" />
-          </Pressable>
         </View>
 
         {/* Card Content */}
@@ -219,26 +201,15 @@ export default function SeminarsScreen() {
 
           <Animated.View entering={FadeIn.duration(400)} style={styles.headerTitleContainer}>
             <Text style={[styles.headerTitle, { color: themeColors.text }]}>
-              Seminaires
+              Séminaires
             </Text>
             <Text style={[styles.headerSubtitle, { color: themeColors.textSecondary }]}>
-              {seminars.length} serie{seminars.length > 1 ? 's' : ''} de predications
+              {seminars.length} série{seminars.length > 1 ? 's' : ''} de prédications
             </Text>
           </Animated.View>
 
-          {/* Create Seminar Button */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.headerButton,
-              {
-                backgroundColor: colors.primary[500],
-                opacity: pressed ? 0.7 : 1,
-              },
-            ]}
-            onPress={() => setCreateSeminarModalVisible(true)}
-          >
-            <Plus size={20} color="#FFFFFF" />
-          </Pressable>
+          {/* Spacer pour équilibrer le header */}
+          <View style={styles.headerSpacer} />
         </View>
 
         {/* Search Bar */}
@@ -249,7 +220,7 @@ export default function SeminarsScreen() {
           <Search size={18} color={themeColors.textSecondary} />
           <TextInput
             style={[styles.searchInput, { color: themeColors.text }]}
-            placeholder="Rechercher un seminaire..."
+            placeholder="Rechercher un séminaire..."
             placeholderTextColor={themeColors.textTertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -293,7 +264,7 @@ export default function SeminarsScreen() {
             >
               <FolderOpen size={48} color={themeColors.textTertiary} />
               <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>
-                {searchQuery ? 'Aucun seminaire trouve' : 'Aucun seminaire disponible'}
+                {searchQuery ? 'Aucun séminaire trouvé' : 'Aucun séminaire disponible'}
               </Text>
               {searchQuery && (
                 <Text style={[styles.emptySubtext, { color: themeColors.textTertiary }]}>
@@ -304,25 +275,6 @@ export default function SeminarsScreen() {
           }
         />
       )}
-
-      {/* Add Sermons to Seminar Modal */}
-      <AddSermonsToSeminarModal
-        visible={addSermonsModalVisible}
-        onClose={() => {
-          setAddSermonsModalVisible(false);
-          setSelectedSeminar(null);
-        }}
-        seminarId={selectedSeminar?.id || ''}
-        seminarName={selectedSeminar?.name}
-        onSermonsUpdated={loadSeminars}
-      />
-
-      {/* Create Seminar Modal */}
-      <CreateSeminarModal
-        visible={createSeminarModalVisible}
-        onClose={() => setCreateSeminarModalVisible(false)}
-        onSeminarCreated={loadSeminars}
-      />
     </View>
   );
 }
@@ -348,12 +300,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerButton: {
+  headerSpacer: {
     width: 40,
-    height: 40,
-    borderRadius: borderRadius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   headerTitleContainer: {
     alignItems: 'center',
@@ -425,21 +373,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[2],
     paddingVertical: 4,
     borderRadius: borderRadius.full,
-  },
-  addButton: {
-    position: 'absolute',
-    top: spacing[2],
-    right: spacing[2],
-    width: 32,
-    height: 32,
-    borderRadius: borderRadius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
   },
   countText: {
     color: '#FFFFFF',

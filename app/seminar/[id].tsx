@@ -391,11 +391,19 @@ export default function SeminarDetailScreen() {
                 ]}
                 onPress={() => handlePlaySermon(sermon, index)}
               >
-                {/* Number Badge */}
-                <View style={[styles.numberBadge, { backgroundColor: colors.primary[500] + '20' }]}>
-                  <Text style={[styles.numberText, { color: colors.primary[500] }]}>
-                    {index + 1}
-                  </Text>
+                {/* Cover Image */}
+                <View style={styles.sermonCover}>
+                  {sermon.cover_image ? (
+                    <Image source={{ uri: sermon.cover_image }} style={styles.sermonCoverImage} />
+                  ) : (
+                    <LinearGradient
+                      colors={colors.gradients.primary}
+                      style={styles.sermonCoverImage}
+                    />
+                  )}
+                  <View style={styles.sermonPlayOverlay}>
+                    <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
+                  </View>
                 </View>
 
                 {/* Sermon Info */}
@@ -406,23 +414,10 @@ export default function SeminarDetailScreen() {
                   >
                     {sermon.title}
                   </Text>
-                  <View style={styles.sermonMeta}>
-                    {sermon.date && (
-                      <Text style={[styles.sermonDate, { color: themeColors.textTertiary }]}>
-                        {formatDate(sermon.date)}
-                      </Text>
-                    )}
-                    {sermon.duration_seconds && (
-                      <>
-                        <Text style={[styles.metaDot, { color: themeColors.textTertiary }]}>
-                          •
-                        </Text>
-                        <Text style={[styles.sermonDuration, { color: themeColors.textTertiary }]}>
-                          {formatDuration(sermon.duration_seconds)}
-                        </Text>
-                      </>
-                    )}
-                  </View>
+                  <Text style={[styles.sermonMeta, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                    {sermon.speaker}
+                    {sermon.duration_seconds ? ` • ${formatDuration(sermon.duration_seconds)}` : ''}
+                  </Text>
                 </View>
 
                 {/* Actions */}
@@ -449,9 +444,6 @@ export default function SeminarDetailScreen() {
                       fill={isFavorite(sermon.id) ? colors.accent.red : 'transparent'}
                     />
                   </Pressable>
-                  <View style={[styles.playIcon, { backgroundColor: colors.primary[500] }]}>
-                    <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
-                  </View>
                 </View>
               </Pressable>
             </Animated.View>
@@ -660,59 +652,44 @@ const styles = StyleSheet.create({
     padding: spacing[3],
     borderRadius: borderRadius.xl,
     marginBottom: spacing[3],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    gap: spacing[3],
   },
-  numberBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: borderRadius.lg,
+  sermonCover: {
+    width: 52,
+    height: 52,
+    borderRadius: borderRadius.md + 2,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  sermonCoverImage: {
+    width: '100%',
+    height: '100%',
+  },
+  sermonPlayOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing[3],
-  },
-  numberText: {
-    ...typography.titleSmall,
-    fontWeight: '700',
   },
   sermonInfo: {
     flex: 1,
-    marginRight: spacing[2],
   },
   sermonTitle: {
-    ...typography.titleSmall,
-    fontWeight: '600',
-    marginBottom: 4,
+    ...typography.labelLarge,
+    fontWeight: '500',
+    fontSize: 15,
   },
   sermonMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  sermonDate: {
     ...typography.labelSmall,
-  },
-  metaDot: {
-    marginHorizontal: spacing[1],
-  },
-  sermonDuration: {
-    ...typography.labelSmall,
+    marginTop: 3,
+    fontSize: 12,
   },
   sermonActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[2],
+    gap: spacing[1],
   },
   favoriteButton: {
     padding: spacing[2],
-  },
-  playIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });

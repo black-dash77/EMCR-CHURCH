@@ -12,6 +12,7 @@ import {
   Eye,
   EyeOff,
   ChevronRight,
+  ChevronDown,
   Mic,
   Calendar,
   Megaphone,
@@ -1005,6 +1006,8 @@ export default function AdminScreen() {
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [videoUploadProgress, setVideoUploadProgress] = useState(0);
   const [useExistingSpeaker, setUseExistingSpeaker] = useState(false);
+  const [speakerSearchQuery, setSpeakerSearchQuery] = useState('');
+  const [showSpeakerDropdown, setShowSpeakerDropdown] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Load counts and reference data on mount
@@ -1611,31 +1614,87 @@ export default function AdminScreen() {
         </View>
 
         {useExistingSpeaker ? (
-          <View style={[styles.selectWrapper, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectScroll}>
-              {speakers.map((speaker) => (
-                <Pressable
-                  key={speaker.id}
-                  style={[
-                    styles.selectChip,
-                    { borderColor: themeColors.border },
-                    formData.speaker_id === speaker.id && styles.selectChipActive,
-                  ]}
-                  onPress={() => handleSpeakerSelect(speaker.id)}
-                >
-                  <Text style={[
-                    styles.selectChipText,
-                    { color: themeColors.text },
-                    formData.speaker_id === speaker.id && styles.selectChipTextActive,
-                  ]}>
-                    {speaker.name}
-                  </Text>
-                  {formData.speaker_id === speaker.id && (
-                    <Check size={14} color="#FFFFFF" />
+          <View style={{ position: 'relative' }}>
+            {/* Selected speaker or search input */}
+            <Pressable
+              style={[styles.formInput, { backgroundColor: themeColors.card, borderColor: themeColors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+              onPress={() => setShowSpeakerDropdown(!showSpeakerDropdown)}
+            >
+              <Text style={{ color: formData.speaker_id ? themeColors.text : themeColors.textTertiary }}>
+                {formData.speaker_id
+                  ? (() => {
+                      const s = speakers.find(sp => sp.id === formData.speaker_id);
+                      return s ? (s.ministry ? `${s.ministry} ${s.name}` : s.name) : 'Selectionner un orateur';
+                    })()
+                  : 'Selectionner un orateur'
+                }
+              </Text>
+              <ChevronDown size={18} color={themeColors.textTertiary} />
+            </Pressable>
+
+            {/* Dropdown with search */}
+            {showSpeakerDropdown && (
+              <View style={[styles.speakerDropdown, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                {/* Search input */}
+                <View style={[styles.speakerSearchContainer, { borderBottomColor: themeColors.border }]}>
+                  <Search size={16} color={themeColors.textTertiary} />
+                  <TextInput
+                    style={[styles.speakerSearchInput, { color: themeColors.text }]}
+                    placeholder="Rechercher un orateur..."
+                    placeholderTextColor={themeColors.textTertiary}
+                    value={speakerSearchQuery}
+                    onChangeText={setSpeakerSearchQuery}
+                    autoFocus
+                  />
+                  {speakerSearchQuery.length > 0 && (
+                    <Pressable onPress={() => setSpeakerSearchQuery('')}>
+                      <X size={16} color={themeColors.textTertiary} />
+                    </Pressable>
                   )}
-                </Pressable>
-              ))}
-            </ScrollView>
+                </View>
+
+                {/* Speaker list */}
+                <ScrollView style={styles.speakerList} keyboardShouldPersistTaps="handled">
+                  {speakers
+                    .filter(s => {
+                      const query = speakerSearchQuery.toLowerCase();
+                      return s.name.toLowerCase().includes(query) ||
+                             (s.ministry && s.ministry.toLowerCase().includes(query));
+                    })
+                    .map((speaker) => (
+                      <Pressable
+                        key={speaker.id}
+                        style={[
+                          styles.speakerListItem,
+                          { borderBottomColor: themeColors.border },
+                          formData.speaker_id === speaker.id && { backgroundColor: 'rgba(59, 130, 246, 0.1)' },
+                        ]}
+                        onPress={() => {
+                          handleSpeakerSelect(speaker.id);
+                          setShowSpeakerDropdown(false);
+                          setSpeakerSearchQuery('');
+                        }}
+                      >
+                        <Text style={[styles.speakerListItemText, { color: themeColors.text }]}>
+                          {speaker.ministry ? `${speaker.ministry} ${speaker.name}` : speaker.name}
+                        </Text>
+                        {formData.speaker_id === speaker.id && (
+                          <Check size={16} color="#3B82F6" />
+                        )}
+                      </Pressable>
+                    ))}
+                  {speakers.filter(s => {
+                    const query = speakerSearchQuery.toLowerCase();
+                    return s.name.toLowerCase().includes(query) ||
+                           (s.ministry && s.ministry.toLowerCase().includes(query));
+                  }).length === 0 && (
+                    <Text style={[styles.noResultsText, { color: themeColors.textTertiary }]}>
+                      Aucun orateur trouve
+                    </Text>
+                  )}
+                </ScrollView>
+              </View>
+            )}
           </View>
         ) : (
           <TextInput
@@ -1645,12 +1704,6 @@ export default function AdminScreen() {
             value={formData.speaker || ''}
             onChangeText={(text) => setFormData(prev => ({ ...prev, speaker: text, speaker_id: '' }))}
           />
-        )}
-
-        {formData.speaker_id && (
-          <Text style={styles.linkedText}>
-            ✓ Orateur lie : {formData.speaker}
-          </Text>
         )}
       </View>
 
@@ -2007,10 +2060,10 @@ export default function AdminScreen() {
       <View style={styles.formField}>
         <Text style={[styles.formLabel, { color: themeColors.text }]}>Photo</Text>
         {formData.photo_url ? (
-          <View style={styles.imagePreviewContainer}>
+          <View style={[styles.imagePreviewContainer, { width: 150, alignSelf: 'flex-start' }]}>
             <Image
               source={{ uri: formData.photo_url }}
-              style={[styles.imagePreview, { aspectRatio: 1, height: 150 }]}
+              style={{ width: 150, height: 150, borderRadius: 12 }}
               resizeMode="cover"
             />
             <Pressable
@@ -2106,7 +2159,7 @@ export default function AdminScreen() {
                   { color: themeColors.text },
                   formData.speaker_id === speaker.id && styles.selectChipTextActive,
                 ]}>
-                  {speaker.name}
+                  {speaker.ministry ? `${speaker.ministry} ${speaker.name}` : speaker.name}
                 </Text>
               </Pressable>
             ))}
@@ -3410,7 +3463,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[3],
     borderRadius: borderRadius.lg,
     borderWidth: 1,
-    ...typography.bodyMedium,
+    fontSize: 14,
+    lineHeight: 20,
   },
   datePickerButton: {
     flexDirection: 'row',
@@ -3474,6 +3528,54 @@ const styles = StyleSheet.create({
     ...typography.labelSmall,
     color: '#10B981',
     marginTop: spacing[2],
+  },
+  speakerDropdown: {
+    position: 'absolute',
+    top: 52,
+    left: 0,
+    right: 0,
+    maxHeight: 250,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  speakerSearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    borderBottomWidth: 1,
+    gap: spacing[2],
+  },
+  speakerSearchInput: {
+    flex: 1,
+    ...typography.bodyMedium,
+    paddingVertical: spacing[1],
+  },
+  speakerList: {
+    maxHeight: 180,
+  },
+  speakerListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[3],
+    borderBottomWidth: 1,
+  },
+  speakerListItemText: {
+    ...typography.bodyMedium,
+    flex: 1,
+  },
+  noResultsText: {
+    ...typography.bodyMedium,
+    textAlign: 'center',
+    paddingVertical: spacing[4],
   },
   selectContainer: {
     flexDirection: 'row',

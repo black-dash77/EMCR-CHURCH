@@ -30,12 +30,20 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: getBundleId(),
+      associatedDomains: ['applinks:emcr-church.netlify.app'],
       infoPlist: {
         UIBackgroundModes: ['audio'],
         ITSAppUsesNonExemptEncryption: false,
         NSAppTransportSecurity: {
-          NSAllowsArbitraryLoads: true,
+          NSAllowsArbitraryLoads: false,
           NSAllowsLocalNetworking: true,
+          NSExceptionDomains: {
+            'supabase.co': {
+              NSIncludesSubdomains: true,
+              NSExceptionAllowsInsecureHTTPLoads: false,
+              NSExceptionRequiresForwardSecrecy: true,
+            },
+          },
         },
       },
     },
@@ -45,6 +53,20 @@ export default {
         backgroundColor: '#1A4BFF',
       },
       package: getBundleId(),
+      intentFilters: [
+        {
+          action: 'VIEW',
+          autoVerify: true,
+          data: [
+            {
+              scheme: 'https',
+              host: 'emcr-church.netlify.app',
+              pathPrefix: '/sermon',
+            },
+          ],
+          category: ['BROWSABLE', 'DEFAULT'],
+        },
+      ],
       permissions: [
         'android.permission.RECORD_AUDIO',
         'android.permission.READ_EXTERNAL_STORAGE',

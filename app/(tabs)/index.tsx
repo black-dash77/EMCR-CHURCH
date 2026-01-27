@@ -1,3 +1,4 @@
+import NetInfo from '@react-native-community/netinfo';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -13,7 +14,10 @@ import {
   Megaphone,
   AlertCircle,
   Wifi,
+  WifiOff,
+  Download,
   Video,
+  BookOpen,
 } from 'lucide-react-native';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
@@ -30,11 +34,11 @@ import {
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { sermonsApi, eventsApi, announcementsApi } from '@/services/api';
+import { sermonsApi, eventsApi, announcementsApi, seminarsApi } from '@/services/api';
 import { useAudioStore } from '@/stores/useAudioStore';
 import { useUserStore } from '@/stores/useUserStore';
 import { colors, typography, spacing, borderRadius } from '@/theme';
-import type { Sermon, Event, Announcement } from '@/types';
+import type { Sermon, Event, Announcement, Seminar } from '@/types';
 
 const { width } = Dimensions.get('window');
 
@@ -47,23 +51,27 @@ export default function HomeScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isConnected, setIsConnected] = useState<boolean | null>(true);
   const [latestSermons, setLatestSermons] = useState<Sermon[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [latestAnnouncement, setLatestAnnouncement] = useState<Announcement | null>(null);
+  const [seminars, setSeminars] = useState<Seminar[]>([]);
 
   const { currentSermon, isPlaying, playSermon, togglePlayPause, setQueue } = useAudioStore();
   const { firstName } = useUserStore();
 
   const fetchData = useCallback(async () => {
     try {
-      const [sermons, events, announcements] = await Promise.all([
+      const [sermons, events, announcements, seminarsData] = await Promise.all([
         sermonsApi.getLatest(6),
         eventsApi.getUpcoming(2),
         announcementsApi.getLatest(1),
+        seminarsApi.getAll(),
       ]);
       setLatestSermons(sermons);
       setUpcomingEvents(events);
       setLatestAnnouncement(announcements[0] || null);
+      setSeminars(seminarsData.slice(0, 4));
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -74,6 +82,14 @@ export default function HomeScreen() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Monitor network connectivity
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsConnected(state.isConnected);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -187,20 +203,36 @@ export default function HomeScreen() {
         {!loading && !featuredSermon && latestSermons.length === 0 && (
           <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.emptyState}>
             <View style={[styles.emptyIcon, { backgroundColor: themeColors.card }]}>
-              <Wifi size={40} color={themeColors.textTertiary} />
+              {isConnected === false ? (
+                <WifiOff size={40} color={themeColors.textTertiary} />
+              ) : (
+                <Wifi size={40} color={themeColors.textTertiary} />
+              )}
             </View>
             <Text style={[styles.emptyTitle, { color: themeColors.text }]}>
-              Bienvenue sur EMCR Church
+              {isConnected === false ? 'Pas de connexion internet' : 'Bienvenue sur EMCR Church'}
             </Text>
             <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>
-              Les predications et evenements apparaitront ici des qu'ils seront disponibles.
+              {isConnected === false
+                ? 'Vous pouvez toujours acceder a vos audios telecharges en mode hors ligne.'
+                : 'Les predications et evenements apparaitront ici des qu\'ils seront disponibles.'}
             </Text>
-            <Pressable
-              style={[styles.emptyButton, { backgroundColor: colors.primary[500] }]}
-              onPress={onRefresh}
-            >
-              <Text style={styles.emptyButtonText}>Actualiser</Text>
-            </Pressable>
+            {isConnected === false ? (
+              <Pressable
+                style={[styles.emptyButton, { backgroundColor: colors.primary[500] }]}
+                onPress={() => navigateTo('/downloads')}
+              >
+                <Download size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                <Text style={styles.emptyButtonText}>Mes telechargements</Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                style={[styles.emptyButton, { backgroundColor: colors.primary[500] }]}
+                onPress={onRefresh}
+              >
+                <Text style={styles.emptyButtonText}>Actualiser</Text>
+              </Pressable>
+            )}
           </Animated.View>
         )}
 
@@ -291,8 +323,8 @@ export default function HomeScreen() {
                 onPress={() => router.push('/(tabs)/announcements')}
                 hitSlop={8}
               >
-                <Text style={[styles.seeAll, { color: colors.primary[500] }]}>
-                  Tout voir
+                <Text style={[styles.seeAll, { color: themeColors.textSecondary }]}>
+                  Voir tout
                 </Text>
               </Pressable>
             </View>
@@ -378,8 +410,8 @@ export default function HomeScreen() {
                 onPress={() => router.push('/(tabs)/sermons')}
                 hitSlop={8}
               >
-                <Text style={[styles.seeAll, { color: colors.primary[500] }]}>
-                  Tout voir
+                <Text style={[styles.seeAll, { color: themeColors.textSecondary }]}>
+                  Voir tout
                 </Text>
               </Pressable>
             </View>
@@ -443,6 +475,67 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
+        {/* Séminaires Section */}
+        {seminars.length > 0 && (
+          <Animated.View entering={FadeInDown.delay(225).duration(500)} style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+                Séminaires
+              </Text>
+              <Pressable
+                onPress={() => router.push('/seminars')}
+                hitSlop={8}
+              >
+                <Text style={[styles.seeAll, { color: themeColors.textSecondary }]}>
+                  Voir tout
+                </Text>
+              </Pressable>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.sermonsScroll}
+            >
+              {seminars.map((seminar) => (
+                <Pressable
+                  key={seminar.id}
+                  style={({ pressed }) => [
+                    styles.sermonCard,
+                    { opacity: pressed ? 0.9 : 1 },
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push(`/seminar/${seminar.id}`);
+                  }}
+                >
+                  <View style={styles.sermonImageContainer}>
+                    {seminar.cover_image ? (
+                      <Image source={{ uri: seminar.cover_image }} style={styles.sermonImage} />
+                    ) : (
+                      <LinearGradient
+                        colors={['#10B981', '#047857']}
+                        style={styles.sermonImage}
+                      />
+                    )}
+                    <View style={styles.sermonPlayIcon}>
+                      <BookOpen size={14} color="#FFFFFF" />
+                    </View>
+                  </View>
+                  <Text style={[styles.sermonTitle, { color: themeColors.text }]} numberOfLines={2}>
+                    {seminar.name}
+                  </Text>
+                  {seminar.speaker?.name && (
+                    <Text style={[styles.sermonSpeaker, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                      {seminar.speaker.name}
+                    </Text>
+                  )}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Animated.View>
+        )}
+
         {/* Adoration & Louange Section */}
         {(latestAdoration || latestLouange) && (
           <Animated.View entering={FadeInDown.delay(250).duration(500)} style={styles.section}>
@@ -458,7 +551,7 @@ export default function HomeScreen() {
                 onPress={() => router.push('/worship')}
                 hitSlop={8}
               >
-                <Text style={[styles.seeAll, { color: colors.primary[500] }]}>
+                <Text style={[styles.seeAll, { color: themeColors.textSecondary }]}>
                   Voir tout
                 </Text>
               </Pressable>
@@ -818,8 +911,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   seeAll: {
-    ...typography.labelLarge,
-    fontWeight: '600',
+    ...typography.labelMedium,
+    fontSize: 13,
   },
 
   // Sermons

@@ -1,3 +1,4 @@
+import NetInfo from '@react-native-community/netinfo';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -18,6 +19,11 @@ import {
   Headphones,
   Music,
   Video,
+  WifiOff,
+  Download,
+  Clock,
+  Calendar,
+  Library,
 } from 'lucide-react-native';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
@@ -60,11 +66,19 @@ const CARD_WIDTH = (width - spacing[4] * 2 - spacing[3]) / 2;
 
 // Filter chips
 const FILTER_CHIPS = [
-  { id: 'all', label: 'Tout' },
-  { id: 'recent', label: 'Récent' },
+  { id: 'all', label: 'Accueil' },
+  { id: 'list', label: 'Toutes' },
   { id: 'favorites', label: 'Favoris' },
   { id: 'speakers', label: 'Orateurs' },
   { id: 'seminars', label: 'Séminaires' },
+];
+
+// Sort options for list view
+const SORT_OPTIONS = [
+  { id: 'recent', label: 'Plus récent' },
+  { id: 'oldest', label: 'Plus ancien' },
+  { id: 'speaker', label: 'Par orateur' },
+  { id: 'duration', label: 'Par durée' },
 ];
 
 export default function SermonsScreen() {
@@ -82,8 +96,10 @@ export default function SermonsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('recent');
   const [addSermonsModalVisible, setAddSermonsModalVisible] = useState(false);
   const [selectedSeminar, setSelectedSeminar] = useState<Seminar | null>(null);
+  const [isConnected, setIsConnected] = useState<boolean | null>(true);
 
   const { setQueue, currentSermon, isPlaying } = useAudioStore();
   const { favorites, playlists, history, getHistorySermons, getFavoriteSermons } = useUserStore();
@@ -108,6 +124,14 @@ export default function SermonsScreen() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Monitor network connectivity
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsConnected(state.isConnected);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -138,6 +162,23 @@ export default function SermonsScreen() {
       sermons: sermons.filter(s => s.seminar_id === seminar.id),
     })).filter(s => s.sermons.length > 0);
   }, [seminars, sermons]);
+
+  // Sorted sermons for list view
+  const sortedSermons = useMemo(() => {
+    const sorted = [...sermons];
+    switch (sortBy) {
+      case 'recent':
+        return sorted.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      case 'oldest':
+        return sorted.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      case 'speaker':
+        return sorted.sort((a, b) => a.speaker.localeCompare(b.speaker));
+      case 'duration':
+        return sorted.sort((a, b) => (b.duration_seconds || 0) - (a.duration_seconds || 0));
+      default:
+        return sorted;
+    }
+  }, [sermons, sortBy]);
 
   // Get latest sermon with cover image for each category
   const latestPlaylistImage = useMemo(() => {
@@ -325,6 +366,17 @@ export default function SermonsScreen() {
         isDark={isDark}
         onPress={() => navigateTo('/worship')}
       />
+
+      {/* Filtres predications */}
+      <QuickAccessCard
+        title="Filtres"
+        subtitle={`${sermons.length} predication${sermons.length !== 1 ? 's' : ''}`}
+        icon={<Library size={18} color={colors.accent.teal} />}
+        iconBgColor={colors.accent.teal + '15'}
+        themeColors={themeColors}
+        isDark={isDark}
+        onPress={() => navigateTo('/predications')}
+      />
     </View>
   );
 
@@ -449,6 +501,12 @@ export default function SermonsScreen() {
                       },
                     ]}
                     onPress={() => {
+                      // Navigate to predications page for "list" filter
+                      if (chip.id === 'list') {
+                        navigateTo('/predications');
+                        Haptics.selectionAsync();
+                        return;
+                      }
                       setActiveFilter(chip.id);
                       Haptics.selectionAsync();
                     }}
@@ -482,20 +540,36 @@ export default function SermonsScreen() {
         {!loading && sermons.length === 0 && activeFilter === 'all' && (
           <Animated.View entering={FadeInDown.delay(250).duration(400)} style={styles.emptyStateContainer}>
             <View style={[styles.emptyStateIcon, { backgroundColor: themeColors.card }]}>
-              <Headphones size={40} color={themeColors.textTertiary} />
+              {isConnected === false ? (
+                <WifiOff size={40} color={themeColors.textTertiary} />
+              ) : (
+                <Headphones size={40} color={themeColors.textTertiary} />
+              )}
             </View>
             <Text style={[styles.emptyStateTitle, { color: themeColors.text }]}>
-              Aucune predication
+              {isConnected === false ? 'Pas de connexion internet' : 'Aucune predication'}
             </Text>
             <Text style={[styles.emptyStateDescription, { color: themeColors.textSecondary }]}>
-              Les predications apparaitront ici des qu'elles seront ajoutees.
+              {isConnected === false
+                ? 'Vous pouvez toujours acceder a vos audios telecharges en mode hors ligne.'
+                : 'Les predications apparaitront ici des qu\'elles seront ajoutees.'}
             </Text>
-            <Pressable
-              style={[styles.emptyStateButton, { backgroundColor: colors.primary[500] }]}
-              onPress={onRefresh}
-            >
-              <Text style={styles.emptyStateButtonText}>Actualiser</Text>
-            </Pressable>
+            {isConnected === false ? (
+              <Pressable
+                style={[styles.emptyStateButton, { backgroundColor: colors.primary[500], flexDirection: 'row', alignItems: 'center' }]}
+                onPress={() => navigateTo('/downloads')}
+              >
+                <Download size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                <Text style={styles.emptyStateButtonText}>Mes telechargements</Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                style={[styles.emptyStateButton, { backgroundColor: colors.primary[500] }]}
+                onPress={onRefresh}
+              >
+                <Text style={styles.emptyStateButtonText}>Actualiser</Text>
+              </Pressable>
+            )}
           </Animated.View>
         )}
 
@@ -542,7 +616,7 @@ export default function SermonsScreen() {
             {/* Dernieres predications */}
             <Section
               title="Dernieres predications"
-              onSeeAll={() => setActiveFilter('recent')}
+              onSeeAll={() => navigateTo('/predications')}
               themeColors={themeColors}
               delay={350}
             >
@@ -607,26 +681,57 @@ export default function SermonsScreen() {
           </>
         )}
 
-        {/* Recent filter - list view */}
-        {activeFilter === 'recent' && (
+        {/* List filter - all sermons with sort options */}
+        {activeFilter === 'list' && (
           <Animated.View entering={FadeIn.duration(300)} style={styles.listSection}>
-            {sermons.length > 0 ? (
-              sermons.map((sermon, index) => (
+            {/* Sort options */}
+            <View style={styles.sortContainer}>
+              <Text style={[styles.sortLabel, { color: themeColors.textSecondary }]}>Trier par:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortOptions}>
+                {SORT_OPTIONS.map((option) => (
+                  <Pressable
+                    key={option.id}
+                    onPress={() => setSortBy(option.id)}
+                    style={[
+                      styles.sortChip,
+                      { backgroundColor: sortBy === option.id ? colors.primary[500] : themeColors.surface },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.sortChipText,
+                        { color: sortBy === option.id ? '#fff' : themeColors.textSecondary },
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* Sermons count */}
+            <Text style={[styles.sermonsCount, { color: themeColors.textTertiary }]}>
+              {sortedSermons.length} prédication{sortedSermons.length > 1 ? 's' : ''}
+            </Text>
+
+            {sortedSermons.length > 0 ? (
+              sortedSermons.map((sermon, index) => (
                 <SermonListItem
                   key={sermon.id}
                   sermon={sermon}
                   index={index}
                   themeColors={themeColors}
                   isPlaying={currentSermon?.id === sermon.id && isPlaying}
-                  onPress={() => handlePlaySermon(sermon, sermons, index)}
-                  onPlay={() => handlePlaySermon(sermon, sermons, index)}
+                  onPress={() => handlePlaySermon(sermon, sortedSermons, index)}
+                  onPlay={() => handlePlaySermon(sermon, sortedSermons, index)}
                 />
               ))
             ) : (
               <View style={styles.emptyState}>
                 <Headphones size={48} color={themeColors.textTertiary} />
                 <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
-                  Aucune predication disponible
+                  Aucune prédication disponible
                 </Text>
               </View>
             )}
@@ -880,6 +985,24 @@ function AlbumCard({
         <Text style={[styles.albumArtist, { color: themeColors.textSecondary }]} numberOfLines={1}>
           {sermon.speaker}
         </Text>
+        <View style={styles.albumMeta}>
+          {sermon.date && (
+            <View style={styles.albumMetaItem}>
+              <Calendar size={10} color={themeColors.textTertiary} />
+              <Text style={[styles.albumMetaText, { color: themeColors.textTertiary }]}>
+                {new Date(sermon.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+              </Text>
+            </View>
+          )}
+          {sermon.duration_seconds && (
+            <View style={styles.albumMetaItem}>
+              <Clock size={10} color={themeColors.textTertiary} />
+              <Text style={[styles.albumMetaText, { color: themeColors.textTertiary }]}>
+                {Math.floor(sermon.duration_seconds / 60)} min
+              </Text>
+            </View>
+          )}
+        </View>
       </AnimatedPressable>
     </Animated.View>
   );
@@ -1371,6 +1494,20 @@ const styles = StyleSheet.create({
     marginTop: 3,
     fontSize: 12,
   },
+  albumMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  albumMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  albumMetaText: {
+    fontSize: 10,
+  },
 
   // Speaker Card
   speakerCard: {
@@ -1432,6 +1569,33 @@ const styles = StyleSheet.create({
   listSection: {
     paddingHorizontal: spacing[4],
     gap: spacing[1],
+  },
+  sortContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing[3],
+    gap: spacing[2],
+  },
+  sortLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  sortOptions: {
+    flexDirection: 'row',
+    gap: spacing[2],
+  },
+  sortChip: {
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    borderRadius: borderRadius.full,
+  },
+  sortChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  sermonsCount: {
+    fontSize: 12,
+    marginBottom: spacing[2],
   },
 
   // Sermon List Item

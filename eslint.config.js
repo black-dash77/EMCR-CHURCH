@@ -1,6 +1,5 @@
 const { FlatCompat } = require('@eslint/eslintrc');
 const js = require('@eslint/js');
-const path = require('path');
 
 const compat = new FlatCompat({
   baseDirectory: __dirname,
@@ -21,10 +20,11 @@ module.exports = [
       'babel.config.js',
       'metro.config.js',
       'eslint.config.js',
+      'supabase/functions/**',
     ],
   },
 
-  // Configuration Expo de base
+  // Configuration Expo de base (inclut @typescript-eslint)
   ...compat.extends('expo'),
 
   // Configuration Prettier pour désactiver les règles conflictuelles
@@ -36,14 +36,6 @@ module.exports = [
     rules: {
       // Règles désactivées pour éviter les faux positifs
       'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': [
-        'warn',
-        {
-          argsIgnorePattern: '^_',
-          varsIgnorePattern: '^_',
-          caughtErrorsIgnorePattern: '^_',
-        },
-      ],
 
       // Imports
       'import/order': [

@@ -2,6 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Play, Pause, SkipForward, X, Download } from 'lucide-react-native';
+import { useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, Image, useColorScheme } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -38,18 +39,24 @@ export function MiniPlayer() {
   const isCurrentDownloaded = currentSermon ? isDownloaded(currentSermon.id) : false;
 
   const scale = useSharedValue(1);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
-  const handlePress = () => {
+  const handlePress = useCallback(() => {
     scale.value = withSpring(0.98, { damping: 15 });
-    setTimeout(() => {
+    // Clear any existing timeout to prevent memory leaks
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(() => {
       scale.value = withSpring(1, { damping: 15 });
+      timeoutRef.current = null;
     }, 100);
     router.push('/player');
-  };
+  }, [router, scale]);
 
   const handlePlayPause = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

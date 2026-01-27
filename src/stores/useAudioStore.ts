@@ -502,6 +502,8 @@ export const useAudioStore = create<AudioState>()(
         try {
           await audioService.pause();
           get().savePlaybackPosition();
+          // Clean up the status callback to prevent memory leaks
+          audioService.clearStatusCallback();
         } catch (error) {
           console.error('Error stopping audio:', error);
         }

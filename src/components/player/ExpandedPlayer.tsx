@@ -24,7 +24,7 @@ import {
   CheckCircle,
   HardDrive,
 } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -36,14 +36,18 @@ import {
   ScrollView,
   Modal,
   Alert,
+  PanResponder,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
   interpolate,
   Extrapolation,
   useAnimatedScrollHandler,
+  runOnJS,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -74,6 +78,36 @@ export function ExpandedPlayer() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const scrollY = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const isAtTop = useSharedValue(true);
+
+  // Swipe down to dismiss
+  const dismissPlayer = () => {
+    router.back();
+  };
+
+  // Pan gesture for swipe down to dismiss
+  const panGesture = Gesture.Pan()
+    .activeOffsetY(20) // Activate after 20px vertical movement
+    .failOffsetX([-20, 20]) // Fail if horizontal movement detected
+    .onUpdate((event) => {
+      // Only allow swipe down when at top of scroll
+      if (event.translationY > 0 && isAtTop.value) {
+        translateY.value = event.translationY * 0.8; // Resistance factor
+      }
+    })
+    .onEnd((event) => {
+      if (isAtTop.value && (event.translationY > 100 || event.velocityY > 500)) {
+        translateY.value = withTiming(800, { duration: 250 });
+        runOnJS(dismissPlayer)();
+      } else {
+        translateY.value = withSpring(0, { damping: 25, stiffness: 400 });
+      }
+    });
+
+  const animatedContainerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
 
   const { toggleFavorite, isFavorite } = useUserStore();
 
@@ -104,25 +138,35 @@ export function ExpandedPlayer() {
 
   // Fetch speaker info and their sermons
   useEffect(() => {
+    let isMounted = true;
+
     const fetchSpeakerData = async () => {
       if (!currentSermon?.speaker_id) {
-        setSpeaker(null);
-        setSpeakerSermons([]);
+        if (isMounted) {
+          setSpeaker(null);
+          setSpeakerSermons([]);
+        }
         return;
       }
 
       try {
         const data = await speakersApi.getWithSermons(currentSermon.speaker_id);
-        if (data) {
+        if (isMounted && data) {
           setSpeaker(data.speaker);
           setSpeakerSermons(data.sermons.filter((s) => s.id !== currentSermon.id).slice(0, 6));
         }
       } catch (_error) {
-        console.error('Error fetching speaker');
+        if (isMounted) {
+          console.error('Error fetching speaker');
+        }
       }
     };
 
     fetchSpeakerData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [currentSermon?.speaker_id, currentSermon?.id]);
 
   const formatTime = (seconds: number) => {
@@ -193,9 +237,14 @@ export function ExpandedPlayer() {
   const handleShare = async () => {
     if (!currentSermon) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    // URL de la page de redirection avec l'ID du sermon
+    const shareUrl = `https://emcr-church.netlify.app/sermon/${currentSermon.id}`;
+
     try {
       await Share.share({
-        message: `🎧 ${currentSermon.title} - ${currentSermon.speaker}\n\nÉcoute cette prédication sur l'app EMCR Church!`,
+        message: `🎧 ${currentSermon.title} - ${currentSermon.speaker}\n\nÉcoute cette prédication sur l'app EMCR Church!\n\n${shareUrl}`,
+        url: shareUrl, // Pour iOS
       });
     } catch (_error) {
       console.error('Error sharing');
@@ -254,6 +303,7 @@ export function ExpandedPlayer() {
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       scrollY.value = event.contentOffset.y;
+      isAtTop.value = event.contentOffset.y <= 5;
     },
   });
 
@@ -272,29 +322,38 @@ export function ExpandedPlayer() {
   const isCurrentFavorite = isFavorite(currentSermon.id);
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
+  // Create a native scroll gesture
+  const scrollGesture = Gesture.Native();
+
+  // Combine pan and scroll - pan takes priority when at top and swiping down
+  const composedGesture = Gesture.Simultaneous(panGesture, scrollGesture);
+
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+    <GestureDetector gesture={composedGesture}>
+      <Animated.View style={[styles.container, animatedContainerStyle]}>
+        <StatusBar barStyle="light-content" />
 
-{/* Background noir pur */}
-
-      <Animated.ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
-        bounces={true}
-      >
-        {/* Header */}
-        <View style={[styles.header, { paddingTop: insets.top }]}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <ChevronDown size={28} color="#fff" />
-          </Pressable>
-          <Text style={styles.headerTitle}>En cours de lecture</Text>
-          <Pressable onPress={() => setShowOptionsMenu(true)} hitSlop={12}>
-            <MoreHorizontal size={24} color="#fff" />
-          </Pressable>
+        {/* Drag Handle */}
+        <View style={[styles.dragHandleContainer, { paddingTop: insets.top }]}>
+          <View style={styles.dragHandle} />
+          <View style={styles.header}>
+            <Pressable onPress={() => router.back()} hitSlop={12}>
+              <ChevronDown size={28} color="#fff" />
+            </Pressable>
+            <Text style={styles.headerTitle}>En cours de lecture</Text>
+            <Pressable onPress={() => setShowOptionsMenu(true)} hitSlop={12}>
+              <MoreHorizontal size={24} color="#fff" />
+            </Pressable>
+          </View>
         </View>
+
+        <Animated.ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
+          bounces={false}
+        >
 
         {/* Album Cover */}
         <Animated.View style={[styles.coverContainer, coverAnimatedStyle]}>
@@ -320,16 +379,37 @@ export function ExpandedPlayer() {
               <Text style={styles.trackArtist}>{currentSermon.speaker}</Text>
             </Pressable>
           </View>
-          <Pressable
-            onPress={handleToggleFavorite}
-            style={styles.likeBtn}
-          >
-            <Heart
-              size={24}
-              color={isCurrentFavorite ? '#1DB954' : '#888'}
-              fill={isCurrentFavorite ? '#1DB954' : 'transparent'}
-            />
-          </Pressable>
+          <View style={styles.trackActions}>
+            <Pressable
+              onPress={handleDownloadPress}
+              style={styles.actionBtn}
+              disabled={isDownloading || currentDownloadProgress?.status === 'downloading'}
+            >
+              {isCurrentDownloaded ? (
+                <CheckCircle size={22} color="#1DB954" />
+              ) : isDownloading || currentDownloadProgress?.status === 'downloading' ? (
+                <Download size={22} color="#1DB954" />
+              ) : (
+                <Download size={22} color="#888" />
+              )}
+            </Pressable>
+            <Pressable
+              onPress={handleToggleFavorite}
+              style={styles.actionBtn}
+            >
+              <Heart
+                size={24}
+                color={isCurrentFavorite ? '#1DB954' : '#888'}
+                fill={isCurrentFavorite ? '#1DB954' : 'transparent'}
+              />
+            </Pressable>
+            <Pressable
+              onPress={handleShare}
+              style={styles.actionBtn}
+            >
+              <Share2 size={22} color="#888" />
+            </Pressable>
+          </View>
         </View>
 
         {/* Progress Bar */}
@@ -625,7 +705,8 @@ export function ExpandedPlayer() {
           </View>
         </Pressable>
       </Modal>
-    </View>
+      </Animated.View>
+    </GestureDetector>
   );
 }
 
@@ -677,6 +758,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000000',
   },
+  dragHandleContainer: {
+    alignItems: 'center',
+    backgroundColor: '#000000',
+  },
+  dragHandle: {
+    width: 36,
+    height: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 3,
+    marginTop: 8,
+    marginBottom: 8,
+  },
   scrollView: {
     flex: 1,
   },
@@ -686,6 +779,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingBottom: 16,
+    width: '100%',
   },
   headerTitle: {
     color: '#fff',
@@ -730,6 +824,17 @@ const styles = StyleSheet.create({
     color: '#888',
     fontSize: 14,
     marginTop: 4,
+  },
+  trackActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   likeBtn: {
     width: 40,
