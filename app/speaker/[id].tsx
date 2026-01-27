@@ -1,5 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+
+import { useNavigationLock } from '@/hooks/useNavigationLock';
 import {
   ChevronLeft,
   User,
@@ -36,7 +38,7 @@ import type { Speaker, Sermon } from '@/types';
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function SpeakerDetailScreen() {
-  const router = useRouter();
+  const { navigateTo, router } = useNavigationLock();
   const { id } = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -220,7 +222,14 @@ export default function SpeakerDetailScreen() {
         {sermons.length > 0 && (
           <Pressable
             style={[styles.playAllButton, { backgroundColor: colors.primary[500] }]}
-            onPress={() => setQueue(sermons, 0)}
+            onPress={() => {
+              const audioSermons = sermons.filter(s => s.audio_url);
+              if (audioSermons.length === 0) {
+                if (sermons.length > 0) navigateTo(`/sermon/${sermons[0].id}`);
+                return;
+              }
+              setQueue(audioSermons, 0);
+            }}
           >
             <Play size={16} color="#FFFFFF" fill="#FFFFFF" />
             <Text style={styles.playAllText}>Tout ecouter</Text>
@@ -228,7 +237,7 @@ export default function SpeakerDetailScreen() {
         )}
       </View>
     </View>
-  ), [speaker, sermons, themeColors, insets.top]);
+  ), [speaker, sermons, themeColors, insets.top, router, setQueue]);
 
   const renderSermon = useCallback(({ item, index }: { item: Sermon; index: number }) => (
     <SermonItem
@@ -237,10 +246,22 @@ export default function SpeakerDetailScreen() {
       themeColors={themeColors}
       formatDate={formatDate}
       formatDuration={formatDuration}
-      onPress={() => setQueue(sermons, index)}
+      onPress={() => {
+        if (!item.audio_url && (item.youtube_url || item.video_url)) {
+          navigateTo(`/sermon/${item.id}`);
+          return;
+        }
+        if (!item.audio_url) {
+          navigateTo(`/sermon/${item.id}`);
+          return;
+        }
+        const audioSermons = sermons.filter(s => s.audio_url);
+        const audioIndex = audioSermons.findIndex(s => s.id === item.id);
+        setQueue(audioSermons, audioIndex >= 0 ? audioIndex : 0);
+      }}
       shouldAnimate={!hasAnimated.current}
     />
-  ), [themeColors, sermons, setQueue]);
+  ), [themeColors, sermons, setQueue, router]);
 
   // Marquer que les animations ont été jouées après le premier rendu
   useEffect(() => {

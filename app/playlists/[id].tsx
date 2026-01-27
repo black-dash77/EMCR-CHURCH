@@ -1,5 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+
+import { useNavigationLock } from '@/hooks/useNavigationLock';
 import {
   ArrowLeft,
   Play,
@@ -41,7 +43,7 @@ const HEADER_HEIGHT = height * 0.3;
 
 export default function PlaylistDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
+  const { navigateTo, router } = useNavigationLock();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const themeColors = isDark ? colors.dark : colors.light;
@@ -101,24 +103,50 @@ export default function PlaylistDetailScreen() {
   };
 
   const handlePlayAll = () => {
-    if (sermons.length === 0) return;
+    // Filter only sermons with audio
+    const audioSermons = sermons.filter(s => s.audio_url);
+    if (audioSermons.length === 0) {
+      // If no audio sermons, open first sermon's detail page
+      if (sermons.length > 0) {
+        navigateTo(`/sermon/${sermons[0].id}`);
+      }
+      return;
+    }
     setShuffle(false);
-    setQueue(sermons);
-    setCurrentSermon(sermons[0]);
+    setQueue(audioSermons);
+    setCurrentSermon(audioSermons[0]);
     setIsPlaying(true);
   };
 
   const handleShufflePlay = () => {
-    if (sermons.length === 0) return;
+    // Filter only sermons with audio
+    const audioSermons = sermons.filter(s => s.audio_url);
+    if (audioSermons.length === 0) {
+      if (sermons.length > 0) {
+        navigateTo(`/sermon/${sermons[0].id}`);
+      }
+      return;
+    }
     setShuffle(true);
-    const shuffled = [...sermons].sort(() => Math.random() - 0.5);
+    const shuffled = [...audioSermons].sort(() => Math.random() - 0.5);
     setQueue(shuffled);
     setCurrentSermon(shuffled[0]);
     setIsPlaying(true);
   };
 
   const handlePlaySermon = (sermon: Sermon, index: number) => {
-    setQueue(sermons);
+    // If sermon has no audio but has YouTube/video, go to detail page
+    if (!sermon.audio_url && (sermon.youtube_url || sermon.video_url)) {
+      navigateTo(`/sermon/${sermon.id}`);
+      return;
+    }
+    if (!sermon.audio_url) {
+      navigateTo(`/sermon/${sermon.id}`);
+      return;
+    }
+    // Filter only audio sermons for the queue
+    const audioSermons = sermons.filter(s => s.audio_url);
+    setQueue(audioSermons);
     setCurrentSermon(sermon);
     setIsPlaying(true);
   };

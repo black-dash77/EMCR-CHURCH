@@ -65,20 +65,38 @@ class AudioService {
   }
 
   async play(): Promise<void> {
-    if (!this.sound) return;
+    if (!this.sound) {
+      console.warn('Play called but no sound loaded');
+      return;
+    }
     try {
-      await this.sound.playAsync();
+      const status = await this.sound.getStatusAsync();
+      if (status.isLoaded && !status.isPlaying) {
+        await this.sound.playAsync();
+      }
     } catch (error) {
       console.error('Failed to play:', error);
     }
   }
 
   async pause(): Promise<void> {
-    if (!this.sound) return;
+    if (!this.sound) {
+      console.warn('Pause called but no sound loaded');
+      return;
+    }
     try {
-      await this.sound.pauseAsync();
+      const status = await this.sound.getStatusAsync();
+      if (status.isLoaded && status.isPlaying) {
+        await this.sound.pauseAsync();
+      }
     } catch (error) {
       console.error('Failed to pause:', error);
+      // Try to reinitialize if sound object is corrupted
+      try {
+        await this.initialize();
+      } catch (initError) {
+        console.error('Failed to reinitialize audio:', initError);
+      }
     }
   }
 

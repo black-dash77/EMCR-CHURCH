@@ -94,6 +94,7 @@ export default function DownloadsScreen() {
       audio_url: download.localUri,
     };
     await playSermon(offlineSermon);
+    router.push('/player');
   };
 
   const renderDownload = ({ item }: { item: DownloadedSermon }) => {

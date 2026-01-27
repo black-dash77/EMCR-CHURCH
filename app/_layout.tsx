@@ -1,22 +1,35 @@
 import { useFonts } from 'expo-font';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
-import { useColorScheme, View, AppState, AppStateStatus } from 'react-native';
+import { View, AppState, AppStateStatus } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { MiniPlayer } from '@/components/player';
 import { notificationService, getDeepLinkFromNotification } from '@/services/notificationService';
 import { useDownloadStore } from '@/stores/useDownloadStore';
 import { useUserStore } from '@/stores/useUserStore';
 import { colors } from '@/theme';
 
+// Global MiniPlayer that only shows on non-tabs screens
+function GlobalMiniPlayer() {
+  const segments = useSegments();
+  const isTabsScreen = segments[0] === '(tabs)';
+  const isPlayerScreen = segments[0] === 'player';
+
+  // Don't show on tabs (they have their own) or on player screen
+  if (isTabsScreen || isPlayerScreen) return null;
+
+  return <MiniPlayer />;
+}
+
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  // Force dark mode only
+  const isDark = true;
   const router = useRouter();
   const { notificationsEnabled } = useUserStore();
   const appState = useRef(AppState.currentState);
@@ -84,7 +97,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <View style={{ flex: 1, backgroundColor: themeColors.background }}>
-          <StatusBar style={isDark ? 'light' : 'dark'} />
+          <StatusBar style="light" />
           <Stack
             screenOptions={{
               headerShown: false,
@@ -220,6 +233,7 @@ export default function RootLayout() {
               }}
             />
           </Stack>
+          <GlobalMiniPlayer />
         </View>
       </GestureHandlerRootView>
     </SafeAreaProvider>

@@ -96,17 +96,16 @@ Pour une meilleure experience, il est **fortement recommande** d'utiliser YouTub
 | Fonctionnalite | Description |
 |----------------|-------------|
 | **Sermons Audio** | Ecouter et telecharger des sermons audio |
-| **Sermons Video** | Regarder les predications video (ouvre dans le navigateur) |
-| **Evenements** | Calendrier des evenements de l'eglise |
-| **Annonces** | Actualites et communications urgentes |
+| **Sermons Video** | Regarder les predications video (ouvre YouTube) |
+| **Notre Eglise** | Page dediee avec infos, mission, vision, contact |
 | **Orateurs** | Profils des predicateurs avec leurs sermons |
 | **Seminaires** | Series de predications thematiques |
-| **Lecteur Audio** | Lecteur complet avec file d'attente, vitesse de lecture, minuterie de sommeil |
+| **Lecteur Audio** | Lecteur style Spotify avec vitesse, minuterie, partage |
 | **Telechargements** | Ecoute hors-ligne des sermons |
 | **Favoris & Historique** | Suivre vos sermons preferes |
-| **Mode Sombre** | Support automatique du theme systeme |
+| **Mode Sombre** | Theme sombre uniquement (optimise) |
 | **Notifications Push** | Alertes pour nouveaux contenus |
-| **Panel Admin** | Gestion du contenu (mobile + web) |
+| **Panel Admin** | Gestion complete du contenu avec session persistante |
 
 ---
 
@@ -617,6 +616,31 @@ const themeColors = isDark ? colors.dark : colors.light;
 | date | date | Date de publication |
 | image | text | URL de l'image |
 
+#### `church_info`
+| Colonne | Type | Description |
+|---------|------|-------------|
+| id | uuid | Identifiant unique |
+| name | text | Nom de l'eglise |
+| slogan | text | Slogan |
+| description | text | Description |
+| mission | text | Mission |
+| vision | text | Vision |
+| values | text[] | Valeurs (tableau) |
+| history | text | Histoire |
+| pastor_name | text | Nom du pasteur |
+| pastor_photo | text | Photo du pasteur |
+| pastor_message | text | Message du pasteur |
+| address | text | Adresse |
+| phone | text | Telephone |
+| email | text | Email |
+| website | text | Site web |
+| facebook | text | Lien Facebook |
+| instagram | text | Lien Instagram |
+| youtube | text | Lien YouTube |
+| service_times | text | Horaires des cultes |
+| logo_url | text | Logo |
+| cover_image | text | Image de couverture |
+
 ### Storage Buckets
 
 | Bucket | Contenu |
@@ -637,15 +661,17 @@ const themeColors = isDark ? colors.dark : colors.light;
 Accessible depuis : **Plus > Administration**
 
 **Fonctionnalites :**
-- Gestion des sermons (CRUD)
+
+- Gestion des sermons (CRUD) avec upload audio/video
 - Gestion des orateurs
 - Gestion des seminaires
-- Upload audio et images
-- Gestion des evenements et annonces
+- Gestion des informations de l'eglise (Notre Eglise)
+- Envoi de notifications push
+- Upload avec progression en pourcentage
 
 **Securite :**
 - Authentification par mot de passe hashe (SHA-256)
-- Session de 24 heures
+- Session persistante (reste connecte jusqu'a deconnexion manuelle)
 
 ### Admin Web
 

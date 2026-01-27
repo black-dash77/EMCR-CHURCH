@@ -61,9 +61,9 @@ export function MiniPlayer() {
     await playNext();
   };
 
-  const handleClose = () => {
+  const handleClose = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    hidePlayerCompletely();
+    await hidePlayerCompletely();
   };
 
   if (!currentSermon || isPlayerHidden) return null;

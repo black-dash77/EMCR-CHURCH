@@ -1,8 +1,6 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
   ChevronRight,
-  Sparkles,
   Church,
   Shield,
   Download,
@@ -117,32 +115,6 @@ export default function MoreScreen() {
       >
         {/* Spacer pour le header */}
         <View style={{ height: headerTotalHeight + spacing[4] }} />
-
-        {/* Profile Card */}
-        <Animated.View entering={FadeInDown.delay(100).duration(500).springify()}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.profileCard,
-              { backgroundColor: themeColors.card, transform: [{ scale: pressed ? 0.98 : 1 }] },
-            ]}
-          >
-            <LinearGradient
-              colors={colors.gradients.primarySoft}
-              style={styles.profileAvatar}
-            >
-              <Sparkles size={24} color="#FFFFFF" />
-            </LinearGradient>
-            <View style={styles.profileInfo}>
-              <Text style={[styles.profileName, { color: themeColors.text }]}>
-                Bienvenue
-              </Text>
-              <Text style={[styles.profileSubtitle, { color: themeColors.textSecondary }]}>
-                Explorez toutes les fonctionnalités
-              </Text>
-            </View>
-            <ChevronRight size={20} color={themeColors.textTertiary} />
-          </Pressable>
-        </Animated.View>
 
         {/* Menu Sections */}
         {menuSections.map((section, sectionIndex) => (
@@ -287,37 +259,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: spacing[4],
-  },
-  profileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing[4],
-    borderRadius: borderRadius['2xl'],
-    marginBottom: spacing[5],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  profileAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profileInfo: {
-    flex: 1,
-    marginLeft: spacing[4],
-  },
-  profileName: {
-    ...typography.titleMedium,
-    fontWeight: '600',
-  },
-  profileSubtitle: {
-    ...typography.bodySmall,
-    marginTop: 2,
   },
   section: {
     marginBottom: spacing[5],

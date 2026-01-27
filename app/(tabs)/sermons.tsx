@@ -1,6 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+
+import { useNavigationLock } from '@/hooks/useNavigationLock';
 import {
   Search,
   Play,
@@ -15,6 +16,8 @@ import {
   User,
   Plus,
   Headphones,
+  Music,
+  Video,
 } from 'lucide-react-native';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
@@ -30,7 +33,17 @@ import {
   Dimensions,
   FlatList,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown, FadeInRight, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  FadeInRight,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+  interpolateColor,
+  runOnJS,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddSermonsToSeminarModal } from '@/components/AddSermonsToSeminarModal';
@@ -43,6 +56,7 @@ import type { Sermon, Speaker, Seminar } from '@/types';
 
 const { width } = Dimensions.get('window');
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const CARD_WIDTH = (width - spacing[4] * 2 - spacing[3]) / 2;
 
 // Filter chips
 const FILTER_CHIPS = [
@@ -54,7 +68,7 @@ const FILTER_CHIPS = [
 ];
 
 export default function SermonsScreen() {
-  const router = useRouter();
+  const { navigateTo, router } = useNavigationLock();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const themeColors = isDark ? colors.dark : colors.light;
@@ -105,6 +119,10 @@ export default function SermonsScreen() {
   const recentSermons = useMemo(() => sermons.slice(0, 10), [sermons]);
   const favoriteSermons = useMemo(() => getFavoriteSermons(sermons), [sermons, favorites, getFavoriteSermons]);
   const historySermons = useMemo(() => getHistorySermons(sermons).slice(0, 10), [sermons, history, getHistorySermons]);
+  const worshipSermons = useMemo(() =>
+    sermons.filter(s => s.content_type === 'adoration' || s.content_type === 'louange'),
+    [sermons]
+  );
 
   const speakersWithSermons = useMemo(() => {
     return speakers.map(speaker => ({
@@ -121,6 +139,61 @@ export default function SermonsScreen() {
     })).filter(s => s.sermons.length > 0);
   }, [seminars, sermons]);
 
+  // Get latest sermon with cover image for each category
+  const latestPlaylistImage = useMemo(() => {
+    // Collect all sermon IDs from all playlists
+    const allPlaylistSermonIds: string[] = [];
+    for (const playlist of playlists) {
+      if (playlist?.sermonIds?.length) {
+        allPlaylistSermonIds.push(...playlist.sermonIds);
+      }
+    }
+    // Find the first sermon with a cover image
+    for (const sermonId of allPlaylistSermonIds) {
+      const sermon = sermons.find(s => s.id === sermonId);
+      if (sermon?.cover_image) return sermon.cover_image;
+    }
+    // Fallback: if we have playlists with sermons but none have cover images,
+    // use the first sermon's cover from all sermons
+    if (allPlaylistSermonIds.length > 0) {
+      const firstSermonInPlaylist = sermons.find(s => allPlaylistSermonIds.includes(s.id));
+      if (firstSermonInPlaylist) {
+        // Try to get any cover image from recent sermons as fallback
+        const anySermonWithCover = sermons.find(s => s.cover_image);
+        if (anySermonWithCover?.cover_image) return anySermonWithCover.cover_image;
+      }
+    }
+    return null;
+  }, [playlists, sermons]);
+
+  const latestHistoryImage = useMemo(() => {
+    const historyWithImage = historySermons.find(s => s.cover_image);
+    return historyWithImage?.cover_image || null;
+  }, [historySermons]);
+
+  const latestSpeakerImage = useMemo(() => {
+    // Get the latest sermon with cover image from the most popular speaker
+    const topSpeaker = speakersWithSermons[0];
+    if (topSpeaker?.sermons?.length) {
+      const sermonWithImage = topSpeaker.sermons.find(s => s.cover_image);
+      if (sermonWithImage) return sermonWithImage.cover_image;
+    }
+    // Fallback: find any recent sermon with a cover image
+    const recentWithImage = sermons.find(s => s.cover_image);
+    return recentWithImage?.cover_image || null;
+  }, [speakersWithSermons, sermons]);
+
+  const latestSeminarImage = useMemo(() => {
+    // Get image from the first seminar's cover or its first sermon
+    const firstSeminar = seminarsWithDetails[0];
+    if (firstSeminar?.cover_image) return firstSeminar.cover_image;
+    if (firstSeminar?.sermons?.length) {
+      const sermonWithImage = firstSeminar.sermons.find(s => s.cover_image);
+      if (sermonWithImage) return sermonWithImage.cover_image;
+    }
+    return null;
+  }, [seminarsWithDetails]);
+
   const searchResults = useMemo(() => {
     if (!searchQuery) return [];
     const query = searchQuery.toLowerCase();
@@ -132,13 +205,32 @@ export default function SermonsScreen() {
 
   const handlePlaySermon = (sermon: Sermon, queue: Sermon[] = [sermon], index: number = 0) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setQueue(queue, index);
+    // If sermon has no audio but has YouTube/video, go to detail page
+    if (!sermon.audio_url && (sermon.youtube_url || sermon.video_url)) {
+      navigateTo(`/sermon/${sermon.id}`);
+      return;
+    }
+    if (!sermon.audio_url) {
+      navigateTo(`/sermon/${sermon.id}`);
+      return;
+    }
+    // Filter queue to only include sermons with audio
+    const audioQueue = queue.filter(s => s.audio_url);
+    const audioIndex = audioQueue.findIndex(s => s.id === sermon.id);
+    setQueue(audioQueue, audioIndex >= 0 ? audioIndex : 0);
+    // Open the full screen player like Spotify
+    router.push('/player');
   };
 
   const handleShuffleAll = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const shuffled = [...sermons].sort(() => Math.random() - 0.5);
+    // Only shuffle sermons with audio
+    const audioSermons = sermons.filter(s => s.audio_url);
+    if (audioSermons.length === 0) return;
+    const shuffled = [...audioSermons].sort(() => Math.random() - 0.5);
     setQueue(shuffled, 0);
+    // Open the full screen player like Spotify
+    router.push('/player');
   };
 
   const formatDuration = (seconds: number | null) => {
@@ -147,18 +239,19 @@ export default function SermonsScreen() {
     return `${mins} min`;
   };
 
-  // Spotify-like compact card grid
+  // Modern compact card grid
   const renderQuickAccessGrid = () => (
     <View style={styles.quickAccessGrid}>
       {/* Favoris */}
       <QuickAccessCard
         title="Favoris"
         subtitle={`${favorites.length} titre${favorites.length !== 1 ? 's' : ''}`}
-        icon={<Heart size={20} color="#EC4899" fill="#EC4899" />}
-        iconBgColor="rgba(236, 72, 153, 0.15)"
+        icon={<Heart size={18} color="#EC4899" fill="#EC4899" />}
+        iconBgColor="rgba(236, 72, 153, 0.12)"
         image={favoriteSermons[0]?.cover_image}
         themeColors={themeColors}
-        onPress={() => router.push('/favorites')}
+        isDark={isDark}
+        onPress={() => navigateTo('/favorites')}
       />
 
       {/* Derniere ecoute */}
@@ -168,6 +261,7 @@ export default function SermonsScreen() {
           subtitle={historySermons[0]?.speaker || 'Aucune ecoute'}
           image={historySermons[0]?.cover_image}
           themeColors={themeColors}
+          isDark={isDark}
           onPress={() => historySermons[0] && handlePlaySermon(historySermons[0], historySermons, 0)}
         />
       )}
@@ -176,40 +270,60 @@ export default function SermonsScreen() {
       <QuickAccessCard
         title="Playlists"
         subtitle={`${playlists.length} playlist${playlists.length !== 1 ? 's' : ''}`}
-        icon={<ListMusic size={20} color={colors.primary[500]} />}
-        iconBgColor={colors.primary[500] + '20'}
+        icon={!latestPlaylistImage ? <ListMusic size={18} color={colors.primary[500]} /> : undefined}
+        iconBgColor={!latestPlaylistImage ? colors.primary[500] + '15' : undefined}
+        image={latestPlaylistImage}
         themeColors={themeColors}
-        onPress={() => router.push('/playlists')}
+        isDark={isDark}
+        onPress={() => navigateTo('/playlists')}
       />
 
       {/* Historique */}
       <QuickAccessCard
         title="Historique"
         subtitle={`${history.length} ecoute${history.length !== 1 ? 's' : ''}`}
-        icon={<History size={20} color={colors.accent.orange} />}
-        iconBgColor={colors.accent.orange + '20'}
+        icon={!latestHistoryImage ? <History size={18} color={colors.accent.orange} /> : undefined}
+        iconBgColor={!latestHistoryImage ? colors.accent.orange + '15' : undefined}
+        image={latestHistoryImage}
         themeColors={themeColors}
-        onPress={() => router.push('/history')}
+        isDark={isDark}
+        onPress={() => navigateTo('/history')}
       />
 
       {/* Orateurs */}
       <QuickAccessCard
         title="Orateurs"
         subtitle={`${speakers.length} orateur${speakers.length !== 1 ? 's' : ''}`}
-        icon={<Mic2 size={20} color={colors.accent.green} />}
-        iconBgColor={colors.accent.green + '20'}
+        icon={!latestSpeakerImage ? <Mic2 size={18} color={colors.accent.green} /> : undefined}
+        iconBgColor={!latestSpeakerImage ? colors.accent.green + '15' : undefined}
+        image={latestSpeakerImage}
         themeColors={themeColors}
-        onPress={() => router.push('/speakers')}
+        isDark={isDark}
+        onPress={() => navigateTo('/speakers')}
       />
 
       {/* Seminaires */}
       <QuickAccessCard
         title="Séminaires"
         subtitle={`${seminars.length} série${seminars.length !== 1 ? 's' : ''}`}
-        icon={<BookOpen size={20} color={colors.accent.purple} />}
-        iconBgColor={colors.accent.purple + '20'}
+        icon={!latestSeminarImage ? <BookOpen size={18} color={colors.accent.purple} /> : undefined}
+        iconBgColor={!latestSeminarImage ? colors.accent.purple + '15' : undefined}
+        image={latestSeminarImage}
         themeColors={themeColors}
-        onPress={() => router.push('/seminars')}
+        isDark={isDark}
+        onPress={() => navigateTo('/seminars')}
+      />
+
+      {/* Adoration & Louange */}
+      <QuickAccessCard
+        title="Adoration & Louange"
+        subtitle={`${worshipSermons.length} chant${worshipSermons.length !== 1 ? 's' : ''}`}
+        icon={<Music size={18} color="#EC4899" />}
+        iconBgColor="rgba(236, 72, 153, 0.12)"
+        image={worshipSermons[0]?.cover_image}
+        themeColors={themeColors}
+        isDark={isDark}
+        onPress={() => navigateTo('/worship')}
       />
     </View>
   );
@@ -254,7 +368,7 @@ export default function SermonsScreen() {
               index={index}
               themeColors={themeColors}
               isPlaying={currentSermon?.id === item.id && isPlaying}
-              onPress={() => router.push(`/sermon/${item.id}`)}
+              onPress={() => handlePlaySermon(item, searchQuery ? searchResults : sermons, index)}
               onPlay={() => handlePlaySermon(item, searchQuery ? searchResults : sermons, index)}
               variant="flat"
             />
@@ -295,10 +409,16 @@ export default function SermonsScreen() {
           {/* Search Bar */}
           <Animated.View entering={FadeInDown.delay(100).duration(400)}>
             <Pressable
-              style={[styles.searchBarTouchable, { backgroundColor: themeColors.card }]}
+              style={[
+                styles.searchBarTouchable,
+                {
+                  backgroundColor: themeColors.card,
+                  borderColor: 'rgba(0,0,0,0.6)',
+                },
+              ]}
               onPress={() => setIsSearchFocused(true)}
             >
-              <Search size={20} color={themeColors.textTertiary} />
+              <Search size={18} color={themeColors.textTertiary} />
               <Text style={[styles.searchPlaceholder, { color: themeColors.textTertiary }]}>
                 Rechercher une predication...
               </Text>
@@ -312,32 +432,41 @@ export default function SermonsScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.filterChipsContainer}
             >
-              {FILTER_CHIPS.map((chip) => (
-                <Pressable
-                  key={chip.id}
-                  style={[
-                    styles.filterChip,
-                    {
-                      backgroundColor: activeFilter === chip.id
-                        ? colors.primary[500]
-                        : themeColors.card,
-                    },
-                  ]}
-                  onPress={() => {
-                    setActiveFilter(chip.id);
-                    Haptics.selectionAsync();
-                  }}
-                >
-                  <Text
+              {FILTER_CHIPS.map((chip) => {
+                const isActive = activeFilter === chip.id;
+                return (
+                  <Pressable
+                    key={chip.id}
                     style={[
-                      styles.filterChipText,
-                      { color: activeFilter === chip.id ? '#FFFFFF' : themeColors.text },
+                      styles.filterChip,
+                      {
+                        backgroundColor: isActive
+                          ? colors.primary[500]
+                          : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
+                        borderColor: isActive
+                          ? colors.primary[500]
+                          : 'rgba(0,0,0,0.6)',
+                      },
                     ]}
+                    onPress={() => {
+                      setActiveFilter(chip.id);
+                      Haptics.selectionAsync();
+                    }}
                   >
-                    {chip.label}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        {
+                          color: isActive ? '#FFFFFF' : themeColors.textSecondary,
+                          fontWeight: isActive ? '600' : '500',
+                        },
+                      ]}
+                    >
+                      {chip.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </ScrollView>
           </Animated.View>
         </View>
@@ -402,7 +531,7 @@ export default function SermonsScreen() {
                       index={index}
                       themeColors={themeColors}
                       isPlaying={currentSermon?.id === sermon.id && isPlaying}
-                      onPress={() => router.push(`/sermon/${sermon.id}`)}
+                      onPress={() => handlePlaySermon(sermon, historySermons, index)}
                       onPlay={() => handlePlaySermon(sermon, historySermons, index)}
                     />
                   ))}
@@ -425,7 +554,7 @@ export default function SermonsScreen() {
                     index={index}
                     themeColors={themeColors}
                     isPlaying={currentSermon?.id === sermon.id && isPlaying}
-                    onPress={() => router.push(`/sermon/${sermon.id}`)}
+                    onPress={() => handlePlaySermon(sermon, recentSermons, index)}
                     onPlay={() => handlePlaySermon(sermon, recentSermons, index)}
                   />
                 ))}
@@ -489,7 +618,7 @@ export default function SermonsScreen() {
                   index={index}
                   themeColors={themeColors}
                   isPlaying={currentSermon?.id === sermon.id && isPlaying}
-                  onPress={() => router.push(`/sermon/${sermon.id}`)}
+                  onPress={() => handlePlaySermon(sermon, sermons, index)}
                   onPlay={() => handlePlaySermon(sermon, sermons, index)}
                 />
               ))
@@ -515,7 +644,7 @@ export default function SermonsScreen() {
                   index={index}
                   themeColors={themeColors}
                   isPlaying={currentSermon?.id === sermon.id && isPlaying}
-                  onPress={() => router.push(`/sermon/${sermon.id}`)}
+                  onPress={() => handlePlaySermon(sermon, favoriteSermons, index)}
                   onPlay={() => handlePlaySermon(sermon, favoriteSermons, index)}
                 />
               ))
@@ -598,7 +727,7 @@ export default function SermonsScreen() {
   );
 }
 
-// Quick Access Card - Spotify style compact
+// Quick Access Card - Modern compact design
 function QuickAccessCard({
   title,
   subtitle,
@@ -607,6 +736,7 @@ function QuickAccessCard({
   image,
   themeColors,
   onPress,
+  isDark,
 }: {
   title: string;
   subtitle?: string;
@@ -615,6 +745,7 @@ function QuickAccessCard({
   image?: string | null;
   themeColors: ThemeColors;
   onPress: () => void;
+  isDark?: boolean;
 }) {
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({
@@ -623,9 +754,16 @@ function QuickAccessCard({
 
   return (
     <AnimatedPressable
-      style={[styles.quickAccessCard, { backgroundColor: themeColors.card }, animatedStyle]}
-      onPressIn={() => { scale.value = withSpring(0.97); }}
-      onPressOut={() => { scale.value = withSpring(1); }}
+      style={[
+        styles.quickAccessCard,
+        {
+          backgroundColor: themeColors.card,
+          borderColor: 'rgba(0,0,0,0.6)',
+        },
+        animatedStyle,
+      ]}
+      onPressIn={() => { scale.value = withSpring(0.97, { damping: 15, stiffness: 300 }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 15, stiffness: 300 }); }}
       onPress={onPress}
     >
       {image ? (
@@ -679,7 +817,7 @@ function Section({
   );
 }
 
-// Album Card - Spotify style
+// Album Card - Clean modern style
 function AlbumCard({
   sermon,
   index,
@@ -696,16 +834,29 @@ function AlbumCard({
   onPlay: () => void;
 }) {
   const scale = useSharedValue(1);
+  const playButtonOpacity = useSharedValue(0);
+
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
+  const playButtonStyle = useAnimatedStyle(() => ({
+    opacity: playButtonOpacity.value,
+    transform: [{ scale: 0.9 + playButtonOpacity.value * 0.1 }],
+  }));
+
   return (
-    <Animated.View entering={FadeInRight.delay(index * 50).duration(300)}>
+    <Animated.View entering={FadeInRight.delay(index * 40).duration(350)}>
       <AnimatedPressable
         style={[styles.albumCard, animatedStyle]}
-        onPressIn={() => { scale.value = withSpring(0.96); }}
-        onPressOut={() => { scale.value = withSpring(1); }}
+        onPressIn={() => {
+          scale.value = withSpring(0.97, { damping: 15, stiffness: 300 });
+          playButtonOpacity.value = withTiming(1, { duration: 150 });
+        }}
+        onPressOut={() => {
+          scale.value = withSpring(1, { damping: 15, stiffness: 300 });
+          playButtonOpacity.value = withTiming(0, { duration: 200 });
+        }}
         onPress={onPress}
       >
         <View style={styles.albumCoverContainer}>
@@ -717,14 +868,13 @@ function AlbumCard({
               style={styles.albumCover}
             />
           )}
-          <Pressable
-            style={[styles.albumPlayButton, isPlaying && { backgroundColor: colors.primary[500] }]}
-            onPress={onPlay}
-          >
-            <Play size={16} color="#FFFFFF" fill="#FFFFFF" />
-          </Pressable>
+          <Animated.View style={[styles.albumPlayButton, isPlaying && styles.albumPlayButtonActive, playButtonStyle]}>
+            <Pressable onPress={onPlay} style={styles.albumPlayButtonInner}>
+              <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
+            </Pressable>
+          </Animated.View>
         </View>
-        <Text style={[styles.albumTitle, { color: themeColors.text }]} numberOfLines={2}>
+        <Text style={[styles.albumTitle, { color: isPlaying ? colors.primary[500] : themeColors.text }]} numberOfLines={2}>
           {sermon.title}
         </Text>
         <Text style={[styles.albumArtist, { color: themeColors.textSecondary }]} numberOfLines={1}>
@@ -1019,12 +1169,13 @@ const styles = StyleSheet.create({
   // Header
   header: {
     paddingHorizontal: spacing[4],
-    gap: spacing[3],
-    marginBottom: spacing[2],
+    gap: spacing[4],
+    marginBottom: spacing[3],
   },
   title: {
     ...typography.headlineLarge,
     fontWeight: '700',
+    letterSpacing: -0.5,
   },
 
   // Search
@@ -1037,16 +1188,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing[4],
     height: 48,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     gap: spacing[3],
   },
   searchBarTouchable: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing[4],
-    height: 44,
-    borderRadius: borderRadius.lg,
+    height: 46,
+    borderRadius: borderRadius.xl,
     gap: spacing[3],
+    borderWidth: 1,
   },
   searchInput: {
     flex: 1,
@@ -1055,6 +1207,7 @@ const styles = StyleSheet.create({
   },
   searchPlaceholder: {
     ...typography.bodyMedium,
+    fontSize: 15,
   },
   emptySearch: {
     alignItems: 'center',
@@ -1077,12 +1230,13 @@ const styles = StyleSheet.create({
   },
   filterChip: {
     paddingHorizontal: spacing[4],
-    paddingVertical: spacing[2],
+    paddingVertical: spacing[2] + 2,
     borderRadius: borderRadius.full,
+    borderWidth: 1,
   },
   filterChipText: {
     ...typography.labelMedium,
-    fontWeight: '600',
+    fontSize: 13,
   },
 
   // Quick Access Grid
@@ -1090,24 +1244,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: spacing[4],
-    gap: spacing[2],
-    marginBottom: spacing[4],
+    gap: spacing[3],
+    marginBottom: spacing[5],
   },
   quickAccessCard: {
-    width: (width - spacing[4] * 2 - spacing[2]) / 2,
+    width: CARD_WIDTH,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     overflow: 'hidden',
-    height: 56,
+    height: 58,
+    borderWidth: 1,
   },
   quickAccessImage: {
-    width: 56,
-    height: 56,
+    width: 58,
+    height: 58,
   },
   quickAccessIcon: {
-    width: 56,
-    height: 56,
+    width: 58,
+    height: 58,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1117,100 +1272,118 @@ const styles = StyleSheet.create({
   },
   quickAccessTitle: {
     ...typography.labelMedium,
-    fontWeight: '700',
+    fontWeight: '600',
+    fontSize: 13,
   },
 
   // Shuffle
   shuffleSection: {
     paddingHorizontal: spacing[4],
-    marginBottom: spacing[4],
+    marginBottom: spacing[5],
   },
   shuffleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing[2],
-    paddingVertical: spacing[3],
+    paddingVertical: spacing[3] + 2,
     borderRadius: borderRadius.full,
   },
   shuffleButtonText: {
     ...typography.labelLarge,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#FFFFFF',
+    fontSize: 15,
   },
 
   // Section
   section: {
-    marginBottom: spacing[6],
+    marginBottom: spacing[7],
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing[4],
-    marginBottom: spacing[3],
+    marginBottom: spacing[4],
   },
   sectionTitle: {
     ...typography.titleLarge,
-    fontWeight: '700',
+    fontWeight: '600',
+    fontSize: 20,
+    letterSpacing: -0.3,
   },
   seeAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 2,
   },
   seeAllText: {
     ...typography.labelMedium,
+    fontSize: 13,
   },
   horizontalList: {
     paddingHorizontal: spacing[4],
-    gap: spacing[3],
+    gap: spacing[4],
   },
 
   // Album Card
   albumCard: {
-    width: 150,
+    width: 140,
   },
   albumCoverContainer: {
     position: 'relative',
-    marginBottom: spacing[2],
+    marginBottom: spacing[3],
   },
   albumCover: {
-    width: 150,
-    height: 150,
-    borderRadius: borderRadius.lg,
+    width: 140,
+    height: 140,
+    borderRadius: borderRadius.lg + 2,
   },
   albumPlayButton: {
     position: 'absolute',
     bottom: spacing[2],
     right: spacing[2],
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  albumPlayButtonActive: {
+    backgroundColor: colors.primary[500],
+  },
+  albumPlayButtonInner: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
   albumTitle: {
     ...typography.labelMedium,
-    fontWeight: '600',
+    fontWeight: '500',
+    fontSize: 14,
+    lineHeight: 18,
   },
   albumArtist: {
     ...typography.labelSmall,
-    marginTop: 2,
+    marginTop: 3,
+    fontSize: 12,
   },
 
   // Speaker Card
   speakerCard: {
     alignItems: 'center',
-    width: 110,
+    width: 100,
   },
   speakerAvatarContainer: {
-    marginBottom: spacing[2],
+    marginBottom: spacing[3],
   },
   speakerAvatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
   },
   speakerAvatarPlaceholder: {
     backgroundColor: colors.primary[500],
@@ -1219,12 +1392,15 @@ const styles = StyleSheet.create({
   },
   speakerName: {
     ...typography.labelMedium,
-    fontWeight: '600',
+    fontWeight: '500',
     textAlign: 'center',
+    fontSize: 13,
   },
   speakerSermons: {
     ...typography.labelSmall,
     textAlign: 'center',
+    marginTop: 2,
+    fontSize: 11,
   },
 
   // Seminar Card
@@ -1232,36 +1408,38 @@ const styles = StyleSheet.create({
     width: 160,
   },
   seminarCoverContainer: {
-    marginBottom: spacing[2],
+    marginBottom: spacing[3],
   },
   seminarCover: {
     width: 160,
     height: 100,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.lg + 2,
     justifyContent: 'center',
     alignItems: 'center',
   },
   seminarTitle: {
     ...typography.labelMedium,
-    fontWeight: '600',
+    fontWeight: '500',
+    fontSize: 14,
   },
   seminarCount: {
     ...typography.labelSmall,
-    marginTop: 2,
+    marginTop: 3,
+    fontSize: 12,
   },
 
   // List Section
   listSection: {
     paddingHorizontal: spacing[4],
-    gap: spacing[2],
+    gap: spacing[1],
   },
 
   // Sermon List Item
   sermonListItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing[2],
-    borderRadius: borderRadius.lg,
+    padding: spacing[3],
+    borderRadius: borderRadius.xl,
     gap: spacing[3],
   },
   sermonListItemFlat: {
@@ -1271,13 +1449,13 @@ const styles = StyleSheet.create({
     gap: spacing[3],
   },
   sermonDivider: {
-    height: 1,
+    height: StyleSheet.hairlineWidth,
     marginLeft: 56 + spacing[3],
   },
   sermonCover: {
-    width: 56,
-    height: 56,
-    borderRadius: borderRadius.md,
+    width: 52,
+    height: 52,
+    borderRadius: borderRadius.md + 2,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -1287,7 +1465,7 @@ const styles = StyleSheet.create({
   },
   sermonPlayOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1296,11 +1474,13 @@ const styles = StyleSheet.create({
   },
   sermonTitle: {
     ...typography.labelLarge,
-    fontWeight: '600',
+    fontWeight: '500',
+    fontSize: 15,
   },
   sermonMeta: {
     ...typography.labelSmall,
-    marginTop: 2,
+    marginTop: 3,
+    fontSize: 12,
   },
 
   // Empty State
@@ -1363,19 +1543,22 @@ const styles = StyleSheet.create({
     gap: spacing[3],
   },
   speakerGridAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   speakerGridInfo: {
     flex: 1,
   },
   speakerGridName: {
     ...typography.labelLarge,
-    fontWeight: '600',
+    fontWeight: '500',
+    fontSize: 15,
   },
   speakerGridCount: {
     ...typography.labelSmall,
+    marginTop: 2,
+    fontSize: 12,
   },
 
   // Seminar List Item
@@ -1387,9 +1570,9 @@ const styles = StyleSheet.create({
     gap: spacing[3],
   },
   seminarListCover: {
-    width: 70,
-    height: 50,
-    borderRadius: borderRadius.md,
+    width: 68,
+    height: 48,
+    borderRadius: borderRadius.md + 2,
     overflow: 'hidden',
   },
   seminarListImage: {
@@ -1403,16 +1586,18 @@ const styles = StyleSheet.create({
   },
   seminarListTitle: {
     ...typography.labelLarge,
-    fontWeight: '600',
+    fontWeight: '500',
+    fontSize: 15,
   },
   seminarListMeta: {
     ...typography.labelSmall,
-    marginTop: 2,
+    marginTop: 3,
+    fontSize: 12,
   },
   seminarAddButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing[2],

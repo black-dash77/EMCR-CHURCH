@@ -16,7 +16,7 @@ import {
   Headphones,
   Video as VideoIcon,
 } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -30,6 +30,7 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import YoutubePlayer from 'react-native-youtube-iframe';
 
 import { AddToPlaylistModal } from '@/components';
 import { sermonsApi } from '@/services/api';
@@ -40,6 +41,25 @@ import type { Sermon } from '@/types';
 
 const { width } = Dimensions.get('window');
 const COVER_SIZE = width * 0.65;
+
+// Extract YouTube video ID from various URL formats
+const extractYoutubeId = (url: string): string | null => {
+  if (!url) return null;
+
+  // Patterns for different YouTube URL formats
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([^&\n?#]+)/,
+    /^([a-zA-Z0-9_-]{11})$/, // Direct video ID
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+  return null;
+};
 
 export default function SermonDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -52,7 +72,9 @@ export default function SermonDetailScreen() {
   const [sermon, setSermon] = useState<Sermon | null>(null);
   const [loading, setLoading] = useState(true);
   const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
-  const [mediaMode, setMediaMode] = useState<'audio' | 'video' | null>(null);
+  const [mediaMode, setMediaMode] = useState<'audio' | 'video' | 'youtube' | null>(null);
+  const [youtubeVideoId, setYoutubeVideoId] = useState<string | null>(null);
+  const [isYoutubePlaying, setIsYoutubePlaying] = useState(false);
 
   const { currentSermon, isPlaying, playSermon, togglePlayPause, playPrevious, playNext } = useAudioStore();
   const { favorites, addFavorite, removeFavorite } = useUserStore();
@@ -75,11 +97,19 @@ export default function SermonDetailScreen() {
         const data = await sermonsApi.getById(id);
         if (!data) return;
         setSermon(data);
-        // Set default media mode based on available media
-        if (!data.audio_url && data.video_url) {
+
+        // Extract YouTube video ID if available
+        if (data.youtube_url) {
+          const videoId = extractYoutubeId(data.youtube_url);
+          setYoutubeVideoId(videoId);
+        }
+
+        // Set default media mode based on available media (priority: YouTube > video > audio)
+        if (data.youtube_url) {
+          setMediaMode('youtube');
+        } else if (!data.audio_url && data.video_url) {
           setMediaMode('video');
         } else if (data.video_url) {
-          // If has video, default to video mode
           setMediaMode('video');
         } else {
           setMediaMode('audio');
@@ -94,6 +124,15 @@ export default function SermonDetailScreen() {
     fetchSermon();
   }, [id]);
 
+
+  // Handle YouTube player state changes
+  const onYoutubeStateChange = useCallback((state: string) => {
+    if (state === 'playing') {
+      setIsYoutubePlaying(true);
+    } else if (state === 'paused' || state === 'ended') {
+      setIsYoutubePlaying(false);
+    }
+  }, []);
 
   const handlePlayPause = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -217,10 +256,32 @@ export default function SermonDetailScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={mediaMode === 'video' ? styles.scrollContentVideo : styles.scrollContent}
+        contentContainerStyle={(mediaMode === 'video' || mediaMode === 'youtube') ? styles.scrollContentVideo : styles.scrollContent}
       >
-        {/* Video Thumbnail with Play Button */}
-        {sermon.video_url && mediaMode === 'video' && (
+        {/* YouTube Player */}
+        {youtubeVideoId && mediaMode === 'youtube' && (
+          <Animated.View
+            entering={FadeInDown.delay(100).duration(400).springify()}
+            style={styles.youtubeSection}
+          >
+            <View style={styles.youtubePlayerContainer}>
+              <YoutubePlayer
+                height={width * 9 / 16}
+                width={width - spacing[4] * 2}
+                videoId={youtubeVideoId}
+                play={isYoutubePlaying}
+                onChangeState={onYoutubeStateChange}
+                webViewProps={{
+                  allowsFullscreenVideo: true,
+                  allowsInlineMediaPlayback: true,
+                }}
+              />
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Video Thumbnail with Play Button (for Supabase videos) */}
+        {sermon.video_url && mediaMode === 'video' && !sermon.youtube_url && (
           <Animated.View
             entering={FadeInDown.delay(100).duration(400).springify()}
             style={styles.videoSectionTop}
@@ -332,8 +393,8 @@ export default function SermonDetailScreen() {
           </View>
         </Animated.View>
 
-        {/* Quick Actions for Video Mode */}
-        {mediaMode === 'video' && (
+        {/* Quick Actions for Video/YouTube Mode */}
+        {(mediaMode === 'video' || mediaMode === 'youtube') && (
           <Animated.View
             entering={FadeInDown.delay(250).duration(400).springify()}
             style={styles.videoActionsSection}
@@ -386,43 +447,64 @@ export default function SermonDetailScreen() {
           </Animated.View>
         )}
 
-        {/* Media Mode Selector (only if both audio and video available) */}
-        {sermon.audio_url && sermon.video_url && (
+        {/* Media Mode Selector (show if multiple media types available) */}
+        {(sermon.audio_url && (sermon.video_url || sermon.youtube_url)) && (
           <Animated.View
             entering={FadeInDown.delay(250).duration(400).springify()}
             style={styles.mediaModeSection}
           >
             <View style={[styles.mediaModeContainer, { backgroundColor: themeColors.card }]}>
-              <Pressable
-                style={[
-                  styles.mediaModeButton,
-                  mediaMode === 'audio' && { backgroundColor: colors.primary[500] },
-                ]}
-                onPress={() => setMediaMode('audio')}
-              >
-                <Headphones size={18} color={mediaMode === 'audio' ? '#FFFFFF' : themeColors.text} />
-                <Text style={[
-                  styles.mediaModeText,
-                  { color: mediaMode === 'audio' ? '#FFFFFF' : themeColors.textSecondary }
-                ]}>
-                  Audio
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.mediaModeButton,
-                  mediaMode === 'video' && { backgroundColor: colors.primary[500] },
-                ]}
-                onPress={() => setMediaMode('video')}
-              >
-                <VideoIcon size={18} color={mediaMode === 'video' ? '#FFFFFF' : themeColors.text} />
-                <Text style={[
-                  styles.mediaModeText,
-                  { color: mediaMode === 'video' ? '#FFFFFF' : themeColors.textSecondary }
-                ]}>
-                  Vidéo
-                </Text>
-              </Pressable>
+              {sermon.audio_url && (
+                <Pressable
+                  style={[
+                    styles.mediaModeButton,
+                    mediaMode === 'audio' && { backgroundColor: colors.primary[500] },
+                  ]}
+                  onPress={() => setMediaMode('audio')}
+                >
+                  <Headphones size={18} color={mediaMode === 'audio' ? '#FFFFFF' : themeColors.text} />
+                  <Text style={[
+                    styles.mediaModeText,
+                    { color: mediaMode === 'audio' ? '#FFFFFF' : themeColors.textSecondary }
+                  ]}>
+                    Audio
+                  </Text>
+                </Pressable>
+              )}
+              {sermon.youtube_url && (
+                <Pressable
+                  style={[
+                    styles.mediaModeButton,
+                    mediaMode === 'youtube' && { backgroundColor: '#FF0000' },
+                  ]}
+                  onPress={() => setMediaMode('youtube')}
+                >
+                  <VideoIcon size={18} color={mediaMode === 'youtube' ? '#FFFFFF' : themeColors.text} />
+                  <Text style={[
+                    styles.mediaModeText,
+                    { color: mediaMode === 'youtube' ? '#FFFFFF' : themeColors.textSecondary }
+                  ]}>
+                    YouTube
+                  </Text>
+                </Pressable>
+              )}
+              {sermon.video_url && !sermon.youtube_url && (
+                <Pressable
+                  style={[
+                    styles.mediaModeButton,
+                    mediaMode === 'video' && { backgroundColor: colors.primary[500] },
+                  ]}
+                  onPress={() => setMediaMode('video')}
+                >
+                  <VideoIcon size={18} color={mediaMode === 'video' ? '#FFFFFF' : themeColors.text} />
+                  <Text style={[
+                    styles.mediaModeText,
+                    { color: mediaMode === 'video' ? '#FFFFFF' : themeColors.textSecondary }
+                  ]}>
+                    Vidéo
+                  </Text>
+                </Pressable>
+              )}
             </View>
           </Animated.View>
         )}
@@ -575,6 +657,16 @@ const styles = StyleSheet.create({
   },
   scrollContentVideo: {
     paddingTop: 0,
+  },
+  youtubeSection: {
+    paddingHorizontal: spacing[4],
+    marginBottom: spacing[4],
+    marginTop: spacing[2],
+  },
+  youtubePlayerContainer: {
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    backgroundColor: '#000',
   },
   coverContainer: {
     alignItems: 'center',

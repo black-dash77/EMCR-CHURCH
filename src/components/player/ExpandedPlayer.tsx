@@ -19,7 +19,6 @@ import {
   User,
   Smartphone,
   Heart,
-  ListPlus,
   X,
   Download,
   CheckCircle,
@@ -323,34 +322,27 @@ export function ExpandedPlayer() {
           </View>
           <Pressable
             onPress={handleToggleFavorite}
-            style={[styles.likeBtn, isCurrentFavorite && styles.likeBtnActive]}
+            style={styles.likeBtn}
           >
-            {isCurrentFavorite ? (
-              <Check size={20} color="#000" />
-            ) : (
-              <Plus size={20} color="#888" />
-            )}
+            <Heart
+              size={24}
+              color={isCurrentFavorite ? '#1DB954' : '#888'}
+              fill={isCurrentFavorite ? '#1DB954' : 'transparent'}
+            />
           </Pressable>
         </View>
 
         {/* Progress Bar */}
         <View style={styles.progressContainer}>
-          <Pressable style={styles.progressBar}>
-            <View style={styles.progressBg}>
-              <View style={[styles.progressFill, { width: `${progress}%` }]}>
-                <View style={styles.progressDot} />
-              </View>
-            </View>
-          </Pressable>
           <Slider
             style={styles.slider}
             minimumValue={0}
             maximumValue={duration}
             value={currentTime}
             onSlidingComplete={handleSeek}
-            minimumTrackTintColor="transparent"
-            maximumTrackTintColor="transparent"
-            thumbTintColor="transparent"
+            minimumTrackTintColor="#fff"
+            maximumTrackTintColor="rgba(255,255,255,0.2)"
+            thumbTintColor="#fff"
           />
           <View style={styles.timeContainer}>
             <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
@@ -483,24 +475,6 @@ export function ExpandedPlayer() {
           </View>
         )}
 
-        {/* Queue Section */}
-        {queue.length > 1 && (
-          <View style={styles.queueContainer}>
-            <View style={styles.queueHeader}>
-              <Text style={styles.queueTitle}>File d'attente</Text>
-              <Pressable onPress={() => router.push('/queue')}>
-                <Text style={styles.queueSeeAll}>Voir tout</Text>
-              </Pressable>
-            </View>
-            {queue
-              .filter((s) => s.id !== currentSermon.id)
-              .slice(0, 3)
-              .map((sermon) => (
-                <QueueItem key={sermon.id} sermon={sermon} onPress={() => handlePlaySermon(sermon)} />
-              ))}
-          </View>
-        )}
-
         <View style={{ height: insets.bottom + 40 }} />
       </Animated.ScrollView>
 
@@ -597,17 +571,6 @@ export function ExpandedPlayer() {
                   <Text style={styles.optionText}>Voir l'orateur</Text>
                 </Pressable>
               )}
-
-              <Pressable
-                style={styles.optionItem}
-                onPress={() => {
-                  setShowOptionsMenu(false);
-                  router.push('/queue');
-                }}
-              >
-                <ListPlus size={24} color="#fff" />
-                <Text style={styles.optionText}>File d'attente</Text>
-              </Pressable>
 
               <Pressable
                 style={styles.optionItem}
@@ -709,45 +672,6 @@ function DiscoverCard({
   );
 }
 
-// Queue Item Component
-function QueueItem({ sermon, onPress }: { sermon: Sermon; onPress: () => void }) {
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  return (
-    <AnimatedPressable
-      style={[styles.queueItem, animatedStyle]}
-      onPress={onPress}
-      onPressIn={() => {
-        scale.value = withSpring(0.98, { damping: 15 });
-      }}
-      onPressOut={() => {
-        scale.value = withSpring(1, { damping: 15 });
-      }}
-    >
-      {sermon.cover_image ? (
-        <Image source={{ uri: sermon.cover_image }} style={styles.queueItemImage} />
-      ) : (
-        <LinearGradient
-          colors={[colors.primary[500], colors.primary[700]]}
-          style={styles.queueItemImage}
-        />
-      )}
-      <View style={styles.queueItemInfo}>
-        <Text style={styles.queueItemTitle} numberOfLines={1}>
-          {sermon.title}
-        </Text>
-        <Text style={styles.queueItemArtist} numberOfLines={1}>
-          {sermon.speaker}
-        </Text>
-      </View>
-      <Play size={20} color="rgba(255,255,255,0.7)" />
-    </AnimatedPressable>
-  );
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -808,52 +732,18 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   likeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 2,
-    borderColor: '#555',
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  likeBtnActive: {
-    backgroundColor: '#1DB954',
-    borderColor: '#1DB954',
   },
   progressContainer: {
     paddingHorizontal: 24,
     marginTop: 28,
   },
-  progressBar: {
-    height: 20,
-    justifyContent: 'center',
-  },
-  progressBg: {
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 2,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#fff',
-    borderRadius: 2,
-    justifyContent: 'center',
-  },
-  progressDot: {
-    position: 'absolute',
-    right: -6,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#fff',
-  },
   slider: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    top: 0,
-    height: 20,
-    opacity: 0,
+    width: '100%',
+    height: 40,
   },
   timeContainer: {
     flexDirection: 'row',
@@ -1055,53 +945,6 @@ const styles = StyleSheet.create({
   aboutMore: {
     color: '#fff',
     fontWeight: '600',
-  },
-  // Queue Section
-  queueContainer: {
-    marginHorizontal: 20,
-    marginTop: 24,
-  },
-  queueHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  queueTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  queueSeeAll: {
-    color: '#888',
-    fontSize: 14,
-  },
-  queueItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
-    gap: 12,
-  },
-  queueItemImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 6,
-  },
-  queueItemInfo: {
-    flex: 1,
-  },
-  queueItemTitle: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  queueItemArtist: {
-    color: '#888',
-    fontSize: 12,
-    marginTop: 2,
   },
   // Options Menu Modal
   modalOverlay: {

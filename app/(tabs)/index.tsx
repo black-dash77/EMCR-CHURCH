@@ -1,6 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+
+import { useNavigationLock } from '@/hooks/useNavigationLock';
 import {
   Play,
   Pause,
@@ -14,7 +15,7 @@ import {
   Wifi,
   Video,
 } from 'lucide-react-native';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -38,7 +39,7 @@ import type { Sermon, Event, Announcement } from '@/types';
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
-  const router = useRouter();
+  const { navigateTo, router } = useNavigationLock();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const themeColors = isDark ? colors.dark : colors.light;
@@ -80,8 +81,18 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [fetchData]);
 
-  const featuredSermon = latestSermons[0];
-  const recentSermons = latestSermons.slice(1, 6);
+  // Filter sermons by type
+  const sermonsByType = useMemo(() => {
+    const sermons = latestSermons.filter(s => !s.content_type || s.content_type === 'sermon');
+    const adorations = latestSermons.filter(s => s.content_type === 'adoration');
+    const louanges = latestSermons.filter(s => s.content_type === 'louange');
+    return { sermons, adorations, louanges };
+  }, [latestSermons]);
+
+  const featuredSermon = sermonsByType.sermons[0] || latestSermons[0];
+  const recentSermons = sermonsByType.sermons.slice(1, 6);
+  const latestAdoration = sermonsByType.adorations[0];
+  const latestLouange = sermonsByType.louanges[0];
   const nextEvent = upcomingEvents[0];
 
   const getGreeting = () => {
@@ -95,16 +106,24 @@ export default function HomeScreen() {
     if (!featuredSermon) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // If sermon has no audio but has video, navigate to detail page
-    if (!featuredSermon.audio_url && featuredSermon.video_url) {
-      router.push(`/sermon/${featuredSermon.id}`);
+    // If sermon has YouTube or video but no audio, navigate to detail page
+    if (!featuredSermon.audio_url && (featuredSermon.youtube_url || featuredSermon.video_url)) {
+      navigateTo(`/sermon/${featuredSermon.id}`);
+      return;
+    }
+
+    // If sermon has YouTube, navigate to detail page for embedded player
+    if (featuredSermon.youtube_url) {
+      navigateTo(`/sermon/${featuredSermon.id}`);
       return;
     }
 
     if (currentSermon?.id === featuredSermon.id) {
       await togglePlayPause();
+      router.push('/player');
     } else {
       await playSermon(featuredSermon);
+      router.push('/player');
     }
   };
 
@@ -155,6 +174,13 @@ export default function HomeScreen() {
               EMCR Church
             </Text>
           </View>
+        </Animated.View>
+
+        {/* Page Title */}
+        <Animated.View entering={FadeInDown.delay(50).duration(400)} style={styles.pageTitleContainer}>
+          <Text style={[styles.pageTitle, { color: themeColors.text }]}>
+            Prédications
+          </Text>
         </Animated.View>
 
         {/* Empty State */}
@@ -220,13 +246,18 @@ export default function HomeScreen() {
                 {/* Content overlay */}
                 <View style={styles.featuredContent}>
                   <View style={styles.featuredBadge}>
-                    {!featuredSermon.audio_url && featuredSermon.video_url ? (
+                    {featuredSermon.youtube_url ? (
+                      <Video size={12} color="#FF0000" />
+                    ) : !featuredSermon.audio_url && featuredSermon.video_url ? (
                       <Video size={12} color={colors.primary[400]} />
                     ) : (
                       <Headphones size={12} color={colors.primary[400]} />
                     )}
-                    <Text style={styles.featuredBadgeText}>
-                      {!featuredSermon.audio_url && featuredSermon.video_url ? 'Vidéo' : 'Dernière prédication'}
+                    <Text style={[
+                      styles.featuredBadgeText,
+                      featuredSermon.youtube_url && { color: '#FF0000' }
+                    ]}>
+                      {featuredSermon.youtube_url ? 'YouTube' : !featuredSermon.audio_url && featuredSermon.video_url ? 'Vidéo' : 'Dernière prédication'}
                     </Text>
                   </View>
                   <Text style={styles.featuredTitle} numberOfLines={2}>
@@ -358,14 +389,27 @@ export default function HomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.sermonsScroll}
             >
-              {recentSermons.map((sermon, index) => (
+              {recentSermons.map((sermon) => (
                 <Pressable
                   key={sermon.id}
                   style={({ pressed }) => [
                     styles.sermonCard,
-                    { backgroundColor: themeColors.card, opacity: pressed ? 0.9 : 1 },
+                    { opacity: pressed ? 0.9 : 1 },
                   ]}
-                  onPress={() => setQueue(latestSermons, index + 1)}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    // If sermon has YouTube or video but no audio, go to detail page
+                    if (!sermon.audio_url && (sermon.youtube_url || sermon.video_url)) {
+                      navigateTo(`/sermon/${sermon.id}`);
+                    } else if (sermon.audio_url) {
+                      // Play the clicked sermon directly
+                      playSermon(sermon);
+                      router.push('/player');
+                    } else {
+                      // No media at all, just go to detail page
+                      navigateTo(`/sermon/${sermon.id}`);
+                    }
+                  }}
                 >
                   <View style={styles.sermonImageContainer}>
                     {sermon.cover_image ? (
@@ -376,8 +420,15 @@ export default function HomeScreen() {
                         style={styles.sermonImage}
                       />
                     )}
-                    <View style={styles.sermonPlayIcon}>
-                      <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
+                    <View style={[
+                      styles.sermonPlayIcon,
+                      sermon.youtube_url && { backgroundColor: '#FF0000' }
+                    ]}>
+                      {sermon.youtube_url ? (
+                        <Video size={14} color="#FFFFFF" />
+                      ) : (
+                        <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
+                      )}
                     </View>
                   </View>
                   <Text style={[styles.sermonTitle, { color: themeColors.text }]} numberOfLines={2}>
@@ -388,6 +439,113 @@ export default function HomeScreen() {
                   </Text>
                 </Pressable>
               ))}
+            </ScrollView>
+          </Animated.View>
+        )}
+
+        {/* Adoration & Louange Section */}
+        {(latestAdoration || latestLouange) && (
+          <Animated.View entering={FadeInDown.delay(250).duration(500)} style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+                {latestAdoration && latestLouange
+                  ? 'Adorations & Louanges'
+                  : latestAdoration
+                    ? 'Adorations'
+                    : 'Louanges'}
+              </Text>
+              <Pressable
+                onPress={() => router.push('/worship')}
+                hitSlop={8}
+              >
+                <Text style={[styles.seeAll, { color: colors.primary[500] }]}>
+                  Voir tout
+                </Text>
+              </Pressable>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.sermonsScroll}
+            >
+              {/* Latest Adoration */}
+              {latestAdoration && (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.sermonCard,
+                    { opacity: pressed ? 0.9 : 1 },
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    if (latestAdoration.audio_url) {
+                      playSermon(latestAdoration);
+                      router.push('/player');
+                    } else {
+                      navigateTo(`/sermon/${latestAdoration.id}`);
+                    }
+                  }}
+                >
+                  <View style={styles.sermonImageContainer}>
+                    {latestAdoration.cover_image ? (
+                      <Image source={{ uri: latestAdoration.cover_image }} style={styles.sermonImage} />
+                    ) : (
+                      <LinearGradient
+                        colors={['#EC4899', '#BE185D']}
+                        style={styles.sermonImage}
+                      />
+                    )}
+                    <View style={styles.sermonPlayIcon}>
+                      <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
+                    </View>
+                  </View>
+                  <Text style={[styles.sermonTitle, { color: themeColors.text }]} numberOfLines={2}>
+                    {latestAdoration.title}
+                  </Text>
+                  <Text style={[styles.sermonSpeaker, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                    {latestAdoration.speaker}
+                  </Text>
+                </Pressable>
+              )}
+
+              {/* Latest Louange */}
+              {latestLouange && (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.sermonCard,
+                    { opacity: pressed ? 0.9 : 1 },
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    if (latestLouange.audio_url) {
+                      playSermon(latestLouange);
+                      router.push('/player');
+                    } else {
+                      navigateTo(`/sermon/${latestLouange.id}`);
+                    }
+                  }}
+                >
+                  <View style={styles.sermonImageContainer}>
+                    {latestLouange.cover_image ? (
+                      <Image source={{ uri: latestLouange.cover_image }} style={styles.sermonImage} />
+                    ) : (
+                      <LinearGradient
+                        colors={['#8B5CF6', '#6D28D9']}
+                        style={styles.sermonImage}
+                      />
+                    )}
+                    <View style={styles.sermonPlayIcon}>
+                      <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
+                    </View>
+                  </View>
+                  <Text style={[styles.sermonTitle, { color: themeColors.text }]} numberOfLines={2}>
+                    {latestLouange.title}
+                  </Text>
+                  <Text style={[styles.sermonSpeaker, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                    {latestLouange.speaker}
+                  </Text>
+                </Pressable>
+              )}
             </ScrollView>
           </Animated.View>
         )}
@@ -543,7 +701,19 @@ const styles = StyleSheet.create({
   },
   churchName: {
     ...typography.headlineSmall,
+    fontWeight: '600',
+    letterSpacing: -0.5,
+  },
+
+  // Page Title
+  pageTitleContainer: {
+    paddingHorizontal: spacing[5],
+    marginBottom: spacing[4],
+  },
+  pageTitle: {
+    ...typography.headlineLarge,
     fontWeight: '700',
+    letterSpacing: -0.5,
   },
 
   // Featured
@@ -554,6 +724,8 @@ const styles = StyleSheet.create({
   featuredCard: {
     borderRadius: borderRadius['2xl'],
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.6)',
   },
   featuredImageContainer: {
     width: '100%',
@@ -605,7 +777,8 @@ const styles = StyleSheet.create({
   featuredTitle: {
     ...typography.headlineSmall,
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '600',
+    letterSpacing: -0.3,
     marginBottom: spacing[2],
   },
   featuredMeta: {
@@ -640,8 +813,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing[4],
   },
   sectionTitle: {
-    ...typography.titleMedium,
+    fontSize: 20,
     fontWeight: '600',
+    letterSpacing: -0.3,
   },
   seeAll: {
     ...typography.labelLarge,
@@ -655,8 +829,6 @@ const styles = StyleSheet.create({
   },
   sermonCard: {
     width: 140,
-    borderRadius: borderRadius.xl,
-    overflow: 'hidden',
   },
   sermonImageContainer: {
     width: '100%',
@@ -681,7 +853,7 @@ const styles = StyleSheet.create({
   },
   sermonTitle: {
     ...typography.labelLarge,
-    fontWeight: '600',
+    fontWeight: '500',
     marginTop: spacing[2],
     paddingHorizontal: spacing[1],
   },
@@ -700,6 +872,8 @@ const styles = StyleSheet.create({
     padding: spacing[3],
     borderRadius: borderRadius['2xl'],
     gap: spacing[4],
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.6)',
   },
   eventCardSecondary: {
     marginTop: spacing[3],
@@ -777,7 +951,7 @@ const styles = StyleSheet.create({
   },
   eventTitle: {
     ...typography.titleSmall,
-    fontWeight: '600',
+    fontWeight: '500',
     marginBottom: spacing[1],
   },
   eventTitleSmall: {
@@ -807,6 +981,8 @@ const styles = StyleSheet.create({
     padding: spacing[4],
     borderRadius: borderRadius['2xl'],
     gap: spacing[4],
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.6)',
   },
   announcementImageContainer: {
     width: 64,
@@ -825,7 +1001,7 @@ const styles = StyleSheet.create({
   },
   announcementTitle: {
     ...typography.titleSmall,
-    fontWeight: '600',
+    fontWeight: '500',
     marginBottom: spacing[1],
   },
   announcementDescription: {

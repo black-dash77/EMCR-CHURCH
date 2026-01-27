@@ -1,5 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+
+import { useNavigationLock } from '@/hooks/useNavigationLock';
 import { ChevronLeft, Heart, Play, Clock } from 'lucide-react-native';
 import { useEffect, useState, useCallback } from 'react';
 import {
@@ -22,7 +23,7 @@ import { colors, typography, spacing, borderRadius } from '@/theme';
 import type { Sermon } from '@/types';
 
 export default function FavoritesScreen() {
-  const router = useRouter();
+  const { navigateTo, router } = useNavigationLock();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const themeColors = isDark ? colors.dark : colors.light;
@@ -67,7 +68,7 @@ export default function FavoritesScreen() {
     return (
       <Pressable
         style={[styles.sermonCard, { backgroundColor: themeColors.card }]}
-        onPress={() => router.push(`/sermon/${item.id}`)}
+        onPress={() => navigateTo(`/sermon/${item.id}`)}
       >
         <View style={styles.sermonCover}>
           {item.cover_image ? (
@@ -80,7 +81,15 @@ export default function FavoritesScreen() {
           )}
           <Pressable
             style={styles.playOverlay}
-            onPress={() => playSermon(item)}
+            onPress={() => {
+              if (!item.audio_url && (item.youtube_url || item.video_url)) {
+                navigateTo(`/sermon/${item.id}`);
+              } else if (item.audio_url) {
+                playSermon(item);
+              } else {
+                navigateTo(`/sermon/${item.id}`);
+              }
+            }}
           >
             <Play size={24} color="#FFFFFF" fill="#FFFFFF" />
           </Pressable>

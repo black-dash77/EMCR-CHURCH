@@ -1,6 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+
+import { useNavigationLock } from '@/hooks/useNavigationLock';
 import { ChevronLeft, GripVertical, Play, Trash2, ListMusic } from 'lucide-react-native';
 import {
   View,
@@ -21,7 +22,7 @@ import { colors, typography, spacing, borderRadius } from '@/theme';
 import type { Sermon } from '@/types';
 
 export default function QueueScreen() {
-  const router = useRouter();
+  const { navigateTo, router } = useNavigationLock();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const themeColors = isDark ? colors.dark : colors.light;
@@ -55,7 +56,15 @@ export default function QueueScreen() {
             isCurrentSermon && styles.currentItem,
           ]}
           onLongPress={drag}
-          onPress={() => playSermon(item, false)}
+          onPress={() => {
+            if (!item.audio_url && (item.youtube_url || item.video_url)) {
+              navigateTo(`/sermon/${item.id}`);
+            } else if (item.audio_url) {
+              playSermon(item, false);
+            } else {
+              navigateTo(`/sermon/${item.id}`);
+            }
+          }}
         >
           <Pressable onLongPress={drag} style={styles.dragHandle}>
             <GripVertical size={20} color={themeColors.textTertiary} />

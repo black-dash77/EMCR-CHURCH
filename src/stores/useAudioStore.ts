@@ -6,6 +6,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 
 import { audioService } from '@/services/audioService';
 import { useDownloadStore } from '@/stores/useDownloadStore';
+import { useUserStore } from '@/stores/useUserStore';
 import type { Sermon, RepeatMode, PlaybackRate } from '@/types';
 
 interface AudioState {
@@ -62,7 +63,7 @@ interface AudioState {
   handlePlaybackStatusUpdate: (status: AVPlaybackStatus) => void;
   hidePlayer: () => void;
   showPlayer: () => void;
-  hidePlayerCompletely: () => void;
+  hidePlayerCompletely: () => Promise<void>;
 }
 
 const shuffleArray = <T>(array: T[]): T[] => {
@@ -162,6 +163,9 @@ export const useAudioStore = create<AudioState>()(
           }
 
           set({ isLoading: false, isPlaying: true });
+
+          // Add to history
+          useUserStore.getState().addToHistory(sermon.id);
         } catch (error) {
           console.error('Failed to play sermon:', error);
           console.error('Audio URL attempted:', audioUrl);
@@ -182,6 +186,9 @@ export const useAudioStore = create<AudioState>()(
               await audioService.setPlaybackRate(playbackRate);
               await audioService.setVolume(volume);
               set({ isLoading: false, isPlaying: true });
+
+              // Add to history
+              useUserStore.getState().addToHistory(sermon.id);
               return;
             } catch (fallbackError) {
               console.error('Remote URL also failed:', fallbackError);
@@ -193,21 +200,42 @@ export const useAudioStore = create<AudioState>()(
       },
 
       togglePlayPause: async () => {
-        const { isPlaying } = get();
-        if (isPlaying) {
-          await audioService.pause();
-        } else {
-          await audioService.play();
+        const { isPlaying, currentSermon } = get();
+        if (!currentSermon) {
+          console.warn('togglePlayPause called but no sermon loaded');
+          return;
+        }
+        try {
+          if (isPlaying) {
+            await audioService.pause();
+          } else {
+            await audioService.play();
+          }
+        } catch (error) {
+          console.error('togglePlayPause error:', error);
+          // Force state update if audio service fails
+          set({ isPlaying: !isPlaying });
         }
       },
 
       pause: async () => {
-        await audioService.pause();
-        get().savePlaybackPosition();
+        try {
+          await audioService.pause();
+          set({ isPlaying: false });
+          get().savePlaybackPosition();
+        } catch (error) {
+          console.error('pause error:', error);
+          set({ isPlaying: false });
+        }
       },
 
       play: async () => {
-        await audioService.play();
+        try {
+          await audioService.play();
+          set({ isPlaying: true });
+        } catch (error) {
+          console.error('play error:', error);
+        }
       },
 
       seek: async (seconds) => {
@@ -469,8 +497,15 @@ export const useAudioStore = create<AudioState>()(
         set({ isPlayerHidden: false, isPlayerCompletelyHidden: false });
       },
 
-      hidePlayerCompletely: () => {
-        set({ isPlayerHidden: true, isPlayerCompletelyHidden: true });
+      hidePlayerCompletely: async () => {
+        // Stop the audio and save position before hiding
+        try {
+          await audioService.pause();
+          get().savePlaybackPosition();
+        } catch (error) {
+          console.error('Error stopping audio:', error);
+        }
+        set({ isPlayerHidden: true, isPlayerCompletelyHidden: true, isPlaying: false });
       },
     }),
     {

@@ -41,6 +41,8 @@ export interface Seminar {
 // ==========================================
 // SERMON (Prédication)
 // ==========================================
+export type SermonContentType = 'sermon' | 'adoration' | 'louange';
+
 export interface Sermon {
   id: string;
   title: string;
@@ -50,11 +52,13 @@ export interface Sermon {
   description: string | null;
   audio_url: string | null;
   video_url: string | null;
+  youtube_url: string | null;
   cover_image: string | null;
   date: string;
   duration_seconds: number | null;
   tags: string[] | null;
   category: string | null;
+  content_type: SermonContentType;
   seminar_id: string | null;
   seminar?: Seminar;
   created_at: string;
