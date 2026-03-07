@@ -1,4 +1,5 @@
 import * as Calendar from 'expo-calendar';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -19,7 +20,6 @@ import {
   useColorScheme,
   ScrollView,
   Pressable,
-  Image,
   Dimensions,
   Share,
   Linking,
@@ -202,7 +202,7 @@ export default function EventDetailScreen() {
         {/* Hero Image Section - en dessous du header */}
         <View style={styles.heroSection}>
           {event.image ? (
-            <Image source={{ uri: event.image }} style={styles.heroImage} resizeMode="cover" />
+            <Image source={{ uri: event.image }} style={styles.heroImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
           ) : (
             <LinearGradient
               colors={[colors.primary[400], colors.primary[600]]}

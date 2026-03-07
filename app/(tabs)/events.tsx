@@ -1,7 +1,8 @@
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { MapPin, Clock, ChevronRight, CalendarDays, Calendar, X, ImageIcon } from 'lucide-react-native';
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,7 +12,6 @@ import {
   RefreshControl,
   Pressable,
   Dimensions,
-  Image,
 } from 'react-native';
 import { Calendar as CalendarComponent } from 'react-native-calendars';
 import Animated, {
@@ -24,7 +24,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TAB_BAR_HEIGHT } from '@/components/TabBarBackground';
 import { TransparentHeaderBackground, HEADER_HEIGHT } from '@/components/TransparentHeaderBackground';
-import { eventsApi } from '@/services/api';
+import { useEvents } from '@/hooks/queries/useEvents';
+import { queryClient } from '@/lib/queryClient';
 import { colors, typography, spacing, borderRadius, ThemeColors } from '@/theme';
 import type { Event } from '@/types';
 
@@ -38,29 +39,16 @@ export default function EventsScreen() {
   const themeColors = isDark ? colors.dark : colors.light;
   const insets = useSafeAreaInsets();
 
-  const [events, setEvents] = useState<Event[]>([]);
+  const { data: events = [], isLoading } = useEvents();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showCalendar, setShowCalendar] = useState(true);
 
-  const fetchEvents = useCallback(async () => {
-    try {
-      const data = await eventsApi.getAll();
-      setEvents(data);
-    } catch (error) {
-      console.error('Error fetching events:', error);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchEvents();
+    await queryClient.invalidateQueries();
     setRefreshing(false);
-  }, [fetchEvents]);
+  }, []);
 
   const markedDates = events.reduce(
     (acc, event) => {
@@ -285,7 +273,7 @@ function EventCard({
         {/* Thumbnail Image */}
         <View style={styles.eventThumbnailContainer}>
           {event.image ? (
-            <Image source={{ uri: event.image }} style={styles.eventThumbnail} />
+            <Image source={{ uri: event.image }} style={styles.eventThumbnail} contentFit="cover" cachePolicy="memory-disk" transition={200} />
           ) : (
             <LinearGradient
               colors={colors.gradients.primarySoft}

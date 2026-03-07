@@ -1,0 +1,11 @@
+# Netlify redirects
+
+# Apple App Site Association (sans extension)
+/.well-known/apple-app-site-association  /.well-known/apple-app-site-association  200!  Content-Type=application/json
+
+# Android Asset Links
+/.well-known/assetlinks.json  /.well-known/assetlinks.json  200!  Content-Type=application/json
+
+# SPA - toutes les autres routes vers index.html
+/sermon/*  /index.html  200
+/*         /index.html  200

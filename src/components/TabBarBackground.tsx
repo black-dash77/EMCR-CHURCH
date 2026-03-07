@@ -1,4 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import React from 'react';
 import { View, StyleSheet, useColorScheme, Platform } from 'react-native';
 
 import { colors } from '@/theme';
@@ -39,4 +40,4 @@ export function TabBarBackground() {
   );
 }
 
-export default TabBarBackground;
+export default React.memo(TabBarBackground);

@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { Platform, Linking } from 'react-native';
 
 import type { ExternalServiceAuth } from '@/types';
@@ -32,7 +32,7 @@ class AppleMusicService {
 
   private async loadAuth() {
     try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      const stored = await SecureStore.getItemAsync(STORAGE_KEY);
       if (stored) {
         this.auth = JSON.parse(stored);
       }
@@ -43,7 +43,7 @@ class AppleMusicService {
 
   private async saveAuth(auth: ExternalServiceAuth) {
     this.auth = auth;
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(auth));
+    await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(auth));
   }
 
   /**
@@ -93,7 +93,7 @@ class AppleMusicService {
 
   async disconnect(): Promise<void> {
     this.auth = null;
-    await AsyncStorage.removeItem(STORAGE_KEY);
+    await SecureStore.deleteItemAsync(STORAGE_KEY);
   }
 
   /**

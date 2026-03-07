@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { Image } from 'expo-image';
 import { ChevronLeft, Image as ImageIcon, Video, X } from 'lucide-react-native';
 import { useEffect, useState, useCallback } from 'react';
 import {
@@ -8,11 +9,10 @@ import {
   useColorScheme,
   RefreshControl,
   Pressable,
-  Image,
   Dimensions,
   Modal,
-  FlatList,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -65,7 +65,7 @@ export default function MediaScreen() {
       style={styles.photoItem}
       onPress={() => setSelectedPhoto(item)}
     >
-      <Image source={{ uri: item.url }} style={styles.photoImage} />
+      <Image source={{ uri: item.url }} style={styles.photoImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
       {item.type === 'video' && (
         <View style={styles.videoOverlay}>
           <Video size={24} color="#FFFFFF" />
@@ -145,7 +145,7 @@ export default function MediaScreen() {
 
       {/* Grid */}
       <View style={styles.listContainer}>
-        <FlatList
+        <FlashList
           data={filteredPhotos}
           renderItem={renderPhoto}
           keyExtractor={(item) => item.id}
@@ -187,7 +187,9 @@ export default function MediaScreen() {
             <Image
               source={{ uri: selectedPhoto.url }}
               style={styles.modalImage}
-              resizeMode="contain"
+              contentFit="contain"
+              cachePolicy="memory-disk"
+              transition={200}
             />
           )}
           {selectedPhoto?.title && (

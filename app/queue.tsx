@@ -3,13 +3,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { useNavigationLock } from '@/hooks/useNavigationLock';
 import { ChevronLeft, GripVertical, Play, Trash2, ListMusic } from 'lucide-react-native';
+import { Image } from 'expo-image';
 import {
   View,
   Text,
   StyleSheet,
   useColorScheme,
   Pressable,
-  Image,
 } from 'react-native';
 import DraggableFlatList, {
   ScaleDecorator,
@@ -17,7 +17,7 @@ import DraggableFlatList, {
 } from 'react-native-draggable-flatlist';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useAudioStore } from '@/stores/useAudioStore';
+import { useCurrentSermon, useAudioQueue, useAudioActions } from '@/stores/useAudioStore';
 import { colors, typography, spacing, borderRadius } from '@/theme';
 import type { Sermon } from '@/types';
 
@@ -28,14 +28,9 @@ export default function QueueScreen() {
   const themeColors = isDark ? colors.dark : colors.light;
   const insets = useSafeAreaInsets();
 
-  const {
-    queue,
-    currentIndex,
-    currentSermon,
-    playSermon,
-    removeFromQueue,
-    clearQueue,
-  } = useAudioStore();
+  const currentSermon = useCurrentSermon();
+  const { queue, currentIndex } = useAudioQueue();
+  const { playSermon, removeFromQueue, clearQueue } = useAudioActions();
 
   const handleDragEnd = ({ data }: { data: Sermon[] }) => {
     // TODO: Implement reorder in store
@@ -72,7 +67,7 @@ export default function QueueScreen() {
 
           <View style={styles.itemCover}>
             {item.cover_image ? (
-              <Image source={{ uri: item.cover_image }} style={styles.coverImage} />
+              <Image source={{ uri: item.cover_image }} style={styles.coverImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
             ) : (
               <LinearGradient
                 colors={[colors.primary[400], colors.primary[600]]}

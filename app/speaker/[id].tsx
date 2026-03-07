@@ -2,6 +2,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
 
 import { useNavigationLock } from '@/hooks/useNavigationLock';
+import { useSpeakerWithSermons } from '@/hooks/queries/useSpeakers';
+import { queryClient } from '@/lib/queryClient';
 import {
   ChevronLeft,
   User,
@@ -14,26 +16,25 @@ import {
   Twitter,
   Youtube,
 } from 'lucide-react-native';
-import React, { useEffect, useState, useCallback, useMemo, useRef, memo } from 'react';
+import React, { useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import {
   View,
   Text,
-  FlatList,
   StyleSheet,
   useColorScheme,
   RefreshControl,
   Pressable,
-  Image,
   Linking,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
+import { Image } from 'expo-image';
 import Animated, { FadeInDown, FadeIn, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TAB_BAR_HEIGHT } from '@/components/TabBarBackground';
-import { speakersApi } from '@/services/api';
 import { useAudioStore } from '@/stores/useAudioStore';
 import { colors, typography, spacing, borderRadius, ThemeColors } from '@/theme';
-import type { Speaker, Sermon } from '@/types';
+import type { Sermon } from '@/types';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -45,38 +46,16 @@ export default function SpeakerDetailScreen() {
   const themeColors = isDark ? colors.dark : colors.light;
   const insets = useSafeAreaInsets();
 
-  const [speaker, setSpeaker] = useState<Speaker | null>(null);
-  const [sermons, setSermons] = useState<Sermon[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading: loading, isRefetching: refreshing } = useSpeakerWithSermons(id || '');
+  const speaker = data?.speaker ?? null;
+  const sermons = data?.sermons ?? [];
   const hasAnimated = useRef(false);
 
   const { setQueue } = useAudioStore();
 
-  const fetchData = useCallback(async () => {
-    if (!id) return;
-    try {
-      const data = await speakersApi.getWithSermons(id);
-      if (data) {
-        setSpeaker(data.speaker);
-        setSermons(data.sermons);
-      }
-    } catch (error) {
-      console.error('Error fetching speaker:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
   const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await fetchData();
-    setRefreshing(false);
-  }, [fetchData]);
+    await queryClient.invalidateQueries({ queryKey: ['speakers', 'detail', id] });
+  }, [id]);
 
   const formatDuration = (seconds: number | null) => {
     if (!seconds) return '';
@@ -104,7 +83,7 @@ export default function SpeakerDetailScreen() {
   };
 
   const openSocialLink = (url: string) => {
-    Linking.openURL(url);
+    if (url.startsWith('https://') || url.startsWith('http://')) Linking.openURL(url);
   };
 
   // Mémoriser le header pour éviter les re-animations
@@ -128,7 +107,7 @@ export default function SpeakerDetailScreen() {
         {/* Avatar */}
         <View style={styles.avatarContainer}>
           {speaker?.photo_url ? (
-            <Image source={{ uri: speaker.photo_url }} style={styles.avatar} />
+            <Image source={{ uri: speaker.photo_url }} style={styles.avatar} contentFit="cover" cachePolicy="memory-disk" transition={200} />
           ) : (
             <View style={[styles.avatar, styles.avatarPlaceholder]}>
               <User size={48} color="#FFFFFF" />
@@ -300,7 +279,7 @@ export default function SpeakerDetailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-      <FlatList
+      <FlashList
         data={sermons}
         renderItem={renderSermon}
         keyExtractor={(item) => item.id}
@@ -366,7 +345,7 @@ const SermonItem = memo(function SermonItem({
     >
       <View style={styles.sermonCover}>
         {sermon.cover_image ? (
-          <Image source={{ uri: sermon.cover_image }} style={styles.sermonImage} />
+          <Image source={{ uri: sermon.cover_image }} style={styles.sermonImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
         ) : (
           <LinearGradient
             colors={colors.gradients.primary}

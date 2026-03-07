@@ -14,9 +14,9 @@ import {
   Pressable,
   FlatList,
   TextInput,
-  Image,
   useColorScheme,
 } from 'react-native';
+import { Image } from 'expo-image';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { sermonsApi } from '@/services/api';
@@ -179,6 +179,9 @@ export function AddSermonsModal({
                       <Image
                         source={{ uri: item.cover_image }}
                         style={styles.thumbnailImage}
+                        contentFit="cover"
+                        cachePolicy="memory-disk"
+                        transition={200}
                       />
                     ) : (
                       <LinearGradient

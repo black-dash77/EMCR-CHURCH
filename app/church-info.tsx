@@ -28,10 +28,10 @@ import {
   useColorScheme,
   RefreshControl,
   Pressable,
-  Image,
   Linking,
   Dimensions,
 } from 'react-native';
+import { Image } from 'expo-image';
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -122,7 +122,7 @@ export default function ChurchInfoScreen() {
   });
 
   const openLink = (url: string | null) => {
-    if (url) Linking.openURL(url);
+    if (url && (url.startsWith('https://') || url.startsWith('http://'))) Linking.openURL(url);
   };
 
   const openPhone = (phone: string | null) => {
@@ -209,7 +209,7 @@ export default function ChurchInfoScreen() {
         {/* Hero Section */}
         <Animated.View style={[styles.heroContainer, heroAnimatedStyle]}>
           {churchInfo.cover_image ? (
-            <Image source={{ uri: churchInfo.cover_image }} style={styles.heroImage} />
+            <Image source={{ uri: churchInfo.cover_image }} style={styles.heroImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
           ) : (
             <Image
               source={require('../assets/icon.png')}
@@ -224,7 +224,7 @@ export default function ChurchInfoScreen() {
           {/* Hero Content */}
           <View style={[styles.heroContent, { paddingBottom: spacing[6] }]}>
             {churchInfo.logo_url && (
-              <Image source={{ uri: churchInfo.logo_url }} style={styles.logo} />
+              <Image source={{ uri: churchInfo.logo_url }} style={styles.logo} contentFit="cover" cachePolicy="memory-disk" transition={200} />
             )}
             <Animated.Text
               entering={FadeInDown.delay(200).duration(500)}
@@ -375,7 +375,7 @@ export default function ChurchInfoScreen() {
 
                 <View style={styles.pastorContent}>
                   {churchInfo.pastor_photo ? (
-                    <Image source={{ uri: churchInfo.pastor_photo }} style={styles.pastorPhoto} />
+                    <Image source={{ uri: churchInfo.pastor_photo }} style={styles.pastorPhoto} contentFit="cover" cachePolicy="memory-disk" transition={200} />
                   ) : (
                     <LinearGradient
                       colors={colors.gradients.primarySoft}

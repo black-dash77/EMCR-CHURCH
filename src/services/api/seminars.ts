@@ -7,7 +7,8 @@ export const seminarsApi = {
     const { data, error } = await supabase
       .from('seminars')
       .select('*, speaker:speakers(*)')
-      .order('start_date', { ascending: false });
+      .order('start_date', { ascending: false })
+      .limit(50);
 
     if (error) throw error;
     return data || [];
@@ -46,26 +47,18 @@ export const seminarsApi = {
   },
 
   async getWithSermonCount(): Promise<(Seminar & { sermon_count: number })[]> {
-    const { data: seminars, error: seminarsError } = await supabase
+    const { data, error } = await supabase
       .from('seminars')
-      .select('*, speaker:speakers(*)')
+      .select('*, speaker:speakers(*), sermons(count)')
       .order('start_date', { ascending: false });
 
-    if (seminarsError) throw seminarsError;
-    if (!seminars) return [];
+    if (error) throw error;
+    if (!data) return [];
 
-    const seminarsWithCount = await Promise.all(
-      seminars.map(async (seminar) => {
-        const { count } = await supabase
-          .from('sermons')
-          .select('*', { count: 'exact', head: true })
-          .eq('seminar_id', seminar.id);
-
-        return { ...seminar, sermon_count: count || 0 };
-      })
-    );
-
-    return seminarsWithCount;
+    return data.map((seminar) => ({
+      ...seminar,
+      sermon_count: (seminar as any).sermons?.[0]?.count ?? 0,
+    }));
   },
 
   async getBySpeaker(speakerId: string): Promise<Seminar[]> {

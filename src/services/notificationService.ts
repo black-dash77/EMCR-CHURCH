@@ -85,7 +85,7 @@ class NotificationService {
       });
 
       const token = tokenResponse.data;
-      console.log('Push token:', token);
+      if (__DEV__) console.log('Push token:', token);
 
       // Set up Android channel
       if (Platform.OS === 'android') {

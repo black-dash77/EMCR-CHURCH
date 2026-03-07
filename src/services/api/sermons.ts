@@ -7,7 +7,8 @@ export const sermonsApi = {
     const { data, error } = await supabase
       .from('sermons')
       .select('*')
-      .order('date', { ascending: false });
+      .order('date', { ascending: false })
+      .limit(100);
 
     if (error) throw error;
     return data || [];

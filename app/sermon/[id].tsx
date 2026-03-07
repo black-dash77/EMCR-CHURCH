@@ -24,16 +24,16 @@ import {
   useColorScheme,
   ScrollView,
   Pressable,
-  Image,
   Dimensions,
   Share,
 } from 'react-native';
+import { Image } from 'expo-image';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import YoutubePlayer from 'react-native-youtube-iframe';
 
 import { AddToPlaylistModal } from '@/components';
-import { sermonsApi } from '@/services/api';
+import { useSermonWithProfile } from '@/hooks/queries/useSermons';
 import { useAudioStore } from '@/stores/useAudioStore';
 import { useUserStore } from '@/stores/useUserStore';
 import { colors, typography, spacing, borderRadius } from '@/theme';
@@ -69,12 +69,12 @@ export default function SermonDetailScreen() {
   const themeColors = isDark ? colors.dark : colors.light;
   const insets = useSafeAreaInsets();
 
-  const [sermon, setSermon] = useState<Sermon | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: sermon = null, isLoading: loading } = useSermonWithProfile(id || '');
   const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
   const [mediaMode, setMediaMode] = useState<'audio' | 'video' | 'youtube' | null>(null);
-  const [youtubeVideoId, setYoutubeVideoId] = useState<string | null>(null);
   const [isYoutubePlaying, setIsYoutubePlaying] = useState(false);
+
+  const youtubeVideoId = sermon?.youtube_url ? extractYoutubeId(sermon.youtube_url) : null;
 
   const { currentSermon, isPlaying, playSermon, togglePlayPause, playPrevious, playNext } = useAudioStore();
   const { favorites, addFavorite, removeFavorite } = useUserStore();
@@ -83,46 +83,26 @@ export default function SermonDetailScreen() {
   const isSermonPlaying = isCurrentSermon && isPlaying;
   const isFavorite = id ? favorites.includes(id) : false;
 
-  // Open video in browser
+  // Open video in browser (validate URL scheme)
   const handleWatchVideo = async () => {
     if (!sermon?.video_url) return;
+    const url = sermon.video_url;
+    if (!url.startsWith('https://') && !url.startsWith('http://')) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await WebBrowser.openBrowserAsync(sermon.video_url);
+    await WebBrowser.openBrowserAsync(url);
   };
 
+  // Set default media mode when sermon data loads
   useEffect(() => {
-    const fetchSermon = async () => {
-      if (!id) return;
-      try {
-        const data = await sermonsApi.getById(id);
-        if (!data) return;
-        setSermon(data);
-
-        // Extract YouTube video ID if available
-        if (data.youtube_url) {
-          const videoId = extractYoutubeId(data.youtube_url);
-          setYoutubeVideoId(videoId);
-        }
-
-        // Set default media mode based on available media (priority: YouTube > video > audio)
-        if (data.youtube_url) {
-          setMediaMode('youtube');
-        } else if (!data.audio_url && data.video_url) {
-          setMediaMode('video');
-        } else if (data.video_url) {
-          setMediaMode('video');
-        } else {
-          setMediaMode('audio');
-        }
-      } catch (error) {
-        console.error('Error fetching sermon:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchSermon();
-  }, [id]);
+    if (!sermon) return;
+    if (sermon.youtube_url) {
+      setMediaMode('youtube');
+    } else if (sermon.video_url) {
+      setMediaMode('video');
+    } else {
+      setMediaMode('audio');
+    }
+  }, [sermon]);
 
 
   // Handle YouTube player state changes
@@ -294,6 +274,9 @@ export default function SermonDetailScreen() {
                 <Image
                   source={{ uri: sermon.cover_image }}
                   style={styles.videoThumbnailImage}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
+                  transition={200}
                 />
               ) : (
                 <LinearGradient
@@ -330,6 +313,9 @@ export default function SermonDetailScreen() {
                 <Image
                   source={{ uri: sermon.cover_image }}
                   style={styles.coverImage}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
+                  transition={200}
                 />
               ) : (
                 <LinearGradient

@@ -9,22 +9,22 @@ import {
   CheckCircle,
   HardDrive,
 } from 'lucide-react-native';
+import { Image } from 'expo-image';
 import {
   View,
   Text,
-  FlatList,
   StyleSheet,
   useColorScheme,
   Pressable,
-  Image,
   Alert,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TransparentHeaderBackground, HEADER_HEIGHT } from '@/components/TransparentHeaderBackground';
 import { downloadService } from '@/services/downloadService';
-import { useAudioStore } from '@/stores/useAudioStore';
+import { useCurrentSermon, useAudioActions } from '@/stores/useAudioStore';
 import { useDownloadStore, DownloadedSermon } from '@/stores/useDownloadStore';
 import { colors, typography, spacing, borderRadius } from '@/theme';
 
@@ -36,7 +36,8 @@ export default function DownloadsScreen() {
   const insets = useSafeAreaInsets();
 
   const { getAllDownloads, removeDownload, getTotalSize, clearAllDownloads } = useDownloadStore();
-  const { playSermon, currentSermon } = useAudioStore();
+  const currentSermon = useCurrentSermon();
+  const { playSermon } = useAudioActions();
 
   const downloads = getAllDownloads();
   const totalSize = getTotalSize();
@@ -107,7 +108,7 @@ export default function DownloadsScreen() {
       >
         <View style={styles.sermonCover}>
           {item.sermon.cover_image ? (
-            <Image source={{ uri: item.sermon.cover_image }} style={styles.sermonImage} />
+            <Image source={{ uri: item.sermon.cover_image }} style={styles.sermonImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
           ) : (
             <LinearGradient
               colors={[colors.primary[400], colors.primary[600]]}
@@ -172,7 +173,7 @@ export default function DownloadsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-      <FlatList
+      <FlashList
         data={downloads}
         renderItem={renderDownload}
         keyExtractor={(item) => item.sermon.id}

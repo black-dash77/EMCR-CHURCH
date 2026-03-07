@@ -1,5 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as AuthSession from 'expo-auth-session';
+import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
 
 import type { ExternalServiceAuth } from '@/types';
@@ -57,7 +57,7 @@ class YouTubeMusicService {
 
   private async loadAuth() {
     try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      const stored = await SecureStore.getItemAsync(STORAGE_KEY);
       if (stored) {
         this.auth = JSON.parse(stored);
         // Check if token is expired
@@ -75,7 +75,7 @@ class YouTubeMusicService {
 
   private async saveAuth(auth: ExternalServiceAuth) {
     this.auth = auth;
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(auth));
+    await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(auth));
   }
 
   async authenticate(): Promise<boolean> {
@@ -210,7 +210,7 @@ class YouTubeMusicService {
 
   async disconnect(): Promise<void> {
     this.auth = null;
-    await AsyncStorage.removeItem(STORAGE_KEY);
+    await SecureStore.deleteItemAsync(STORAGE_KEY);
   }
 
   async createPlaylist(

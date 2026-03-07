@@ -30,7 +30,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Image,
   Share,
   StatusBar,
   ScrollView,
@@ -38,6 +37,7 @@ import {
   Alert,
   PanResponder,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useAnimatedStyle,
@@ -53,7 +53,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { speakersApi } from '@/services/api';
 import { downloadService, DownloadDestination } from '@/services/downloadService';
-import { useAudioStore } from '@/stores/useAudioStore';
+import {
+  useCurrentSermon,
+  useIsPlaying,
+  usePlaybackProgress,
+  usePlaybackSettings,
+  useAudioQueue,
+  useSleepTimer,
+  useAudioActions,
+} from '@/stores/useAudioStore';
 import { useDownloadStore } from '@/stores/useDownloadStore';
 import { useUserStore } from '@/stores/useUserStore';
 import { colors } from '@/theme';
@@ -111,16 +119,13 @@ export function ExpandedPlayer() {
 
   const { toggleFavorite, isFavorite } = useUserStore();
 
+  const currentSermon = useCurrentSermon();
+  const isPlaying = useIsPlaying();
+  const { currentTime, duration } = usePlaybackProgress();
+  const { playbackRate, repeatMode, shuffleEnabled } = usePlaybackSettings();
+  const { queue } = useAudioQueue();
+  const { sleepTimerRemaining } = useSleepTimer();
   const {
-    currentSermon,
-    isPlaying,
-    currentTime,
-    duration,
-    playbackRate,
-    repeatMode,
-    shuffleEnabled,
-    sleepTimerRemaining,
-    queue,
     togglePlayPause,
     playNext,
     playPrevious,
@@ -130,7 +135,7 @@ export function ExpandedPlayer() {
     toggleShuffle,
     setSleepTimer,
     playSermon,
-  } = useAudioStore();
+  } = useAudioActions();
 
   const { isDownloaded, activeDownloads } = useDownloadStore();
   const isCurrentDownloaded = currentSermon ? isDownloaded(currentSermon.id) : false;
@@ -359,7 +364,7 @@ export function ExpandedPlayer() {
         <Animated.View style={[styles.coverContainer, coverAnimatedStyle]}>
           <View style={styles.coverWrapper}>
             {currentSermon.cover_image ? (
-              <Image source={{ uri: currentSermon.cover_image }} style={styles.coverImage} />
+              <Image source={{ uri: currentSermon.cover_image }} style={styles.coverImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
             ) : (
               <LinearGradient
                 colors={[colors.primary[400], colors.primary[700]]}
@@ -519,7 +524,7 @@ export function ExpandedPlayer() {
             <Text style={styles.aboutLabel}>À propos de l'orateur</Text>
             <View style={styles.aboutImageContainer}>
               {speaker.photo_url ? (
-                <Image source={{ uri: speaker.photo_url }} style={styles.aboutImage} />
+                <Image source={{ uri: speaker.photo_url }} style={styles.aboutImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
               ) : (
                 <LinearGradient colors={['#333', '#1a1a1a']} style={styles.aboutImage}>
                   <User size={80} color="rgba(255,255,255,0.3)" />
@@ -570,7 +575,7 @@ export function ExpandedPlayer() {
             {/* Header */}
             <View style={styles.optionsHeader}>
               {currentSermon.cover_image ? (
-                <Image source={{ uri: currentSermon.cover_image }} style={styles.optionsImage} />
+                <Image source={{ uri: currentSermon.cover_image }} style={styles.optionsImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
               ) : (
                 <View style={[styles.optionsImage, { backgroundColor: '#333' }]} />
               )}
@@ -739,7 +744,7 @@ function DiscoverCard({
       }}
     >
       {sermon.cover_image ? (
-        <Image source={{ uri: sermon.cover_image }} style={styles.discoverImage} />
+        <Image source={{ uri: sermon.cover_image }} style={styles.discoverImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
       ) : (
         <LinearGradient
           colors={[colors.primary[500], colors.primary[700]]}

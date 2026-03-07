@@ -1,7 +1,8 @@
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { AlertTriangle, Megaphone, ChevronRight, Calendar } from 'lucide-react-native';
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,7 +11,6 @@ import {
   useColorScheme,
   RefreshControl,
   Pressable,
-  Image,
 } from 'react-native';
 import Animated, {
   FadeInDown,
@@ -22,7 +22,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TAB_BAR_HEIGHT } from '@/components/TabBarBackground';
 import { TransparentHeaderBackground, HEADER_HEIGHT } from '@/components/TransparentHeaderBackground';
-import { announcementsApi } from '@/services/api';
+import { useAnnouncements } from '@/hooks/queries/useAnnouncements';
+import { queryClient } from '@/lib/queryClient';
 import { colors, typography, spacing, borderRadius, ThemeColors } from '@/theme';
 import type { Announcement } from '@/types';
 
@@ -35,27 +36,14 @@ export default function AnnouncementsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const { data: announcements = [] } = useAnnouncements();
   const [refreshing, setRefreshing] = useState(false);
-
-  const fetchAnnouncements = useCallback(async () => {
-    try {
-      const data = await announcementsApi.getAll();
-      setAnnouncements(data);
-    } catch (error) {
-      console.error('Error fetching announcements:', error);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchAnnouncements();
-  }, [fetchAnnouncements]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchAnnouncements();
+    await queryClient.invalidateQueries();
     setRefreshing(false);
-  }, [fetchAnnouncements]);
+  }, []);
 
   const urgentAnnouncements = announcements.filter((a) => a.urgent);
   const regularAnnouncements = announcements.filter((a) => !a.urgent);
@@ -223,7 +211,9 @@ function AnnouncementCard({
             <Image
               source={{ uri: announcement.image! }}
               style={styles.coverImage}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={200}
             />
             {isUrgent && (
               <View style={styles.urgentImageBadge}>

@@ -1,8 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { decode } from 'base64-arraybuffer';
+import * as Crypto from 'expo-crypto';
 import * as DocumentPicker from 'expo-document-picker';
+import { Image } from 'expo-image';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as SecureStore from 'expo-secure-store';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -52,7 +55,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
-  Image,
 } from 'react-native';
 import Animated, {
   FadeInDown,
@@ -966,9 +968,17 @@ export default function AdminScreen() {
   useEffect(() => {
     const checkAdminSession = async () => {
       try {
-        const adminSession = await AsyncStorage.getItem('admin_session');
-        if (adminSession === 'authenticated') {
-          setIsAuthenticated(true);
+        const sessionToken = await SecureStore.getItemAsync('admin_session_token');
+        const sessionExpiry = await SecureStore.getItemAsync('admin_session_expiry');
+        if (sessionToken && sessionExpiry) {
+          const expiryDate = new Date(sessionExpiry);
+          if (expiryDate > new Date()) {
+            setIsAuthenticated(true);
+          } else {
+            // Session expired, clean up
+            await SecureStore.deleteItemAsync('admin_session_token');
+            await SecureStore.deleteItemAsync('admin_session_expiry');
+          }
         }
       } catch (error) {
         console.error('Error checking admin session:', error);
@@ -1063,18 +1073,33 @@ export default function AdminScreen() {
     setAuthLoading(true);
     setAuthError('');
 
-    // Mot de passe admin
-    if (password === 'emcr2024') {
-      try {
-        await AsyncStorage.setItem('admin_session', 'authenticated');
+    try {
+      // Hash the password with SHA-256 and compare against stored hash
+      const ADMIN_PASSWORD_HASH = 'b19a8f588ca23adbfb378ef402b53dcbd2267ffd646064c45a922cc5e72ea50c';
+      const inputHash = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        password
+      );
+
+      if (inputHash === ADMIN_PASSWORD_HASH) {
+        // Create session with 24h expiry stored in SecureStore
+        const sessionToken = await Crypto.digestStringAsync(
+          Crypto.CryptoDigestAlgorithm.SHA256,
+          `${Date.now()}-${Math.random()}`
+        );
+        const expiry = new Date();
+        expiry.setHours(expiry.getHours() + 24);
+
+        await SecureStore.setItemAsync('admin_session_token', sessionToken);
+        await SecureStore.setItemAsync('admin_session_expiry', expiry.toISOString());
         setIsAuthenticated(true);
         setPassword('');
-      } catch (error) {
-        console.error('Error saving admin session:', error);
-        setAuthError('Erreur lors de la connexion');
+      } else {
+        setAuthError('Mot de passe incorrect');
       }
-    } else {
-      setAuthError('Mot de passe incorrect');
+    } catch (error) {
+      console.error('Error during login:', error);
+      setAuthError('Erreur lors de la connexion');
     }
 
     setAuthLoading(false);
@@ -1832,7 +1857,9 @@ export default function AdminScreen() {
             <Image
               source={{ uri: formData.cover_image }}
               style={styles.imagePreview}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={200}
             />
             <Pressable
               style={styles.removeImageButton}
@@ -2064,7 +2091,9 @@ export default function AdminScreen() {
             <Image
               source={{ uri: formData.photo_url }}
               style={{ width: 150, height: 150, borderRadius: 12 }}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={200}
             />
             <Pressable
               style={styles.removeImageButton}
@@ -2197,7 +2226,9 @@ export default function AdminScreen() {
             <Image
               source={{ uri: formData.cover_image }}
               style={styles.imagePreview}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={200}
             />
             <Pressable
               style={styles.removeImageButton}
@@ -2329,7 +2360,9 @@ export default function AdminScreen() {
             <Image
               source={{ uri: formData.image }}
               style={styles.imagePreview}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={200}
             />
             <Pressable
               style={styles.removeImageButton}
@@ -2436,7 +2469,9 @@ export default function AdminScreen() {
             <Image
               source={{ uri: formData.image }}
               style={styles.imagePreview}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={200}
             />
             <Pressable
               style={styles.removeImageButton}
@@ -2515,7 +2550,9 @@ export default function AdminScreen() {
             <Image
               source={{ uri: formData.photo }}
               style={[styles.imagePreview, { aspectRatio: 1, height: 150 }]}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={200}
             />
             <Pressable
               style={styles.removeImageButton}
@@ -2557,7 +2594,9 @@ export default function AdminScreen() {
             <Image
               source={{ uri: formData.url }}
               style={styles.imagePreview}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={200}
             />
             <Pressable
               style={styles.removeImageButton}
@@ -3005,7 +3044,8 @@ export default function AdminScreen() {
             style={[styles.logoutButton, { borderColor: '#EF4444' }]}
             onPress={async () => {
               try {
-                await AsyncStorage.removeItem('admin_session');
+                await SecureStore.deleteItemAsync('admin_session_token');
+                await SecureStore.deleteItemAsync('admin_session_expiry');
               } catch (error) {
                 console.error('Error removing admin session:', error);
               }

@@ -1,3 +1,4 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -8,6 +9,11 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { MiniPlayer } from '@/components/player';
+import { sermonKeys } from '@/hooks/queries/useSermons';
+import { eventKeys } from '@/hooks/queries/useEvents';
+import { queryClient } from '@/lib/queryClient';
+import { sermonsApi } from '@/services/api/sermons';
+import { eventsApi } from '@/services/api/events';
 import { notificationService, getDeepLinkFromNotification } from '@/services/notificationService';
 import { useDownloadStore } from '@/stores/useDownloadStore';
 import { useUserStore } from '@/stores/useUserStore';
@@ -87,6 +93,18 @@ export default function RootLayout() {
     useDownloadStore.getState().verifyDownloads();
   }, []);
 
+  // Prefetch homepage data
+  useEffect(() => {
+    queryClient.prefetchQuery({
+      queryKey: sermonKeys.latest(6),
+      queryFn: () => sermonsApi.getLatest(6),
+    });
+    queryClient.prefetchQuery({
+      queryKey: eventKeys.upcoming(2),
+      queryFn: () => eventsApi.getUpcoming(2),
+    });
+  }, []);
+
   if (!fontsLoaded) {
     return null;
   }
@@ -94,6 +112,7 @@ export default function RootLayout() {
   const themeColors = isDark ? colors.dark : colors.light;
 
   return (
+    <QueryClientProvider client={queryClient}>
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <View style={{ flex: 1, backgroundColor: themeColors.background }}>
@@ -237,5 +256,6 @@ export default function RootLayout() {
         </View>
       </GestureHandlerRootView>
     </SafeAreaProvider>
+    </QueryClientProvider>
   );
 }

@@ -2,17 +2,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Search, User, Mic, ChevronLeft, X } from 'lucide-react-native';
 import { useEffect, useState, useCallback } from 'react';
+import { Image } from 'expo-image';
 import {
   View,
   Text,
-  FlatList,
   StyleSheet,
   useColorScheme,
   RefreshControl,
   Pressable,
-  Image,
   TextInput,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -88,12 +88,11 @@ export default function SpeakersScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-      <FlatList
+      <FlashList
         data={filteredSpeakers}
         renderItem={renderSpeaker}
         keyExtractor={(item) => item.id}
         numColumns={2}
-        columnWrapperStyle={styles.columnWrapper}
         contentContainerStyle={[
           styles.listContent,
           { paddingBottom: TAB_BAR_HEIGHT + 60 },
@@ -214,7 +213,7 @@ function SpeakerCard({
       >
         <View style={styles.avatarContainer}>
           {speaker.photo_url ? (
-            <Image source={{ uri: speaker.photo_url }} style={styles.avatar} />
+            <Image source={{ uri: speaker.photo_url }} style={styles.avatar} contentFit="cover" cachePolicy="memory-disk" transition={200} />
           ) : (
             <LinearGradient
               colors={colors.gradients.primary}

@@ -1,5 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { useNavigationLock } from '@/hooks/useNavigationLock';
@@ -33,7 +34,6 @@ import {
   useColorScheme,
   RefreshControl,
   Pressable,
-  Image,
   TextInput,
   ScrollView,
   Dimensions,
@@ -54,7 +54,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddSermonsToSeminarModal } from '@/components/AddSermonsToSeminarModal';
 import { TAB_BAR_HEIGHT } from '@/components/TabBarBackground';
-import { sermonsApi, speakersApi, seminarsApi } from '@/services/api';
+import { useSermons } from '@/hooks/queries/useSermons';
+import { useSpeakersWithCount } from '@/hooks/queries/useSpeakers';
+import { useSeminarsWithCount } from '@/hooks/queries/useSeminars';
+import { queryClient } from '@/lib/queryClient';
 import { useAudioStore } from '@/stores/useAudioStore';
 import { useUserStore } from '@/stores/useUserStore';
 import { colors, typography, spacing, borderRadius, ThemeColors } from '@/theme';
@@ -88,10 +91,9 @@ export default function SermonsScreen() {
   const themeColors = isDark ? colors.dark : colors.light;
   const insets = useSafeAreaInsets();
 
-  const [sermons, setSermons] = useState<Sermon[]>([]);
-  const [speakers, setSpeakers] = useState<Speaker[]>([]);
-  const [seminars, setSeminars] = useState<Seminar[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: sermons = [], isLoading: loading } = useSermons();
+  const { data: speakers = [] } = useSpeakersWithCount();
+  const { data: seminars = [] } = useSeminarsWithCount();
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -104,27 +106,6 @@ export default function SermonsScreen() {
   const { setQueue, currentSermon, isPlaying } = useAudioStore();
   const { favorites, playlists, history, getHistorySermons, getFavoriteSermons } = useUserStore();
 
-  const fetchData = useCallback(async () => {
-    try {
-      const [sermonsData, speakersData, seminarsData] = await Promise.all([
-        sermonsApi.getAll(),
-        speakersApi.getAll(),
-        seminarsApi.getAll(),
-      ]);
-      setSermons(sermonsData);
-      setSpeakers(speakersData);
-      setSeminars(seminarsData);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
   // Monitor network connectivity
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
@@ -135,9 +116,9 @@ export default function SermonsScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchData();
+    await queryClient.invalidateQueries();
     setRefreshing(false);
-  }, [fetchData]);
+  }, []);
 
   // Filtered/computed data
   const recentSermons = useMemo(() => sermons.slice(0, 10), [sermons]);
@@ -826,7 +807,7 @@ export default function SermonsScreen() {
         }}
         seminarId={selectedSeminar?.id || ''}
         seminarName={selectedSeminar?.name}
-        onSermonsUpdated={fetchData}
+        onSermonsUpdated={() => queryClient.invalidateQueries()}
       />
     </View>
   );
@@ -872,7 +853,7 @@ function QuickAccessCard({
       onPress={onPress}
     >
       {image ? (
-        <Image source={{ uri: image }} style={styles.quickAccessImage} />
+        <Image source={{ uri: image }} style={styles.quickAccessImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
       ) : icon ? (
         <View style={[styles.quickAccessIcon, { backgroundColor: iconBgColor }]}>
           {icon}
@@ -966,7 +947,7 @@ function AlbumCard({
       >
         <View style={styles.albumCoverContainer}>
           {sermon.cover_image ? (
-            <Image source={{ uri: sermon.cover_image }} style={styles.albumCover} />
+            <Image source={{ uri: sermon.cover_image }} style={styles.albumCover} contentFit="cover" cachePolicy="memory-disk" transition={200} />
           ) : (
             <LinearGradient
               colors={colors.gradients.primary}
@@ -1035,7 +1016,7 @@ function SpeakerCard({
       >
         <View style={styles.speakerAvatarContainer}>
           {speaker.photo_url ? (
-            <Image source={{ uri: speaker.photo_url }} style={styles.speakerAvatar} />
+            <Image source={{ uri: speaker.photo_url }} style={styles.speakerAvatar} contentFit="cover" cachePolicy="memory-disk" transition={200} />
           ) : (
             <View style={[styles.speakerAvatar, styles.speakerAvatarPlaceholder]}>
               <User size={32} color="#FFFFFF" />
@@ -1080,7 +1061,7 @@ function SeminarCard({
       >
         <View style={styles.seminarCoverContainer}>
           {seminar.cover_image ? (
-            <Image source={{ uri: seminar.cover_image }} style={styles.seminarCover} />
+            <Image source={{ uri: seminar.cover_image }} style={styles.seminarCover} contentFit="cover" cachePolicy="memory-disk" transition={200} />
           ) : (
             <LinearGradient
               colors={colors.gradients.secondary}
@@ -1146,7 +1127,7 @@ function SermonListItem({
       >
         <Pressable style={styles.sermonCover} onPress={onPlay}>
           {sermon.cover_image ? (
-            <Image source={{ uri: sermon.cover_image }} style={styles.sermonCoverImage} />
+            <Image source={{ uri: sermon.cover_image }} style={styles.sermonCoverImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
           ) : (
             <LinearGradient
               colors={colors.gradients.primary}
@@ -1199,7 +1180,7 @@ function SpeakerGridCard({
         onPress={onPress}
       >
         {speaker.photo_url ? (
-          <Image source={{ uri: speaker.photo_url }} style={styles.speakerGridAvatar} />
+          <Image source={{ uri: speaker.photo_url }} style={styles.speakerGridAvatar} contentFit="cover" cachePolicy="memory-disk" transition={200} />
         ) : (
           <View style={[styles.speakerGridAvatar, styles.speakerAvatarPlaceholder]}>
             <User size={24} color="#FFFFFF" />
@@ -1248,7 +1229,7 @@ function SeminarListItem({
       >
         <View style={styles.seminarListCover}>
           {seminar.cover_image ? (
-            <Image source={{ uri: seminar.cover_image }} style={styles.seminarListImage} />
+            <Image source={{ uri: seminar.cover_image }} style={styles.seminarListImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
           ) : (
             <LinearGradient
               colors={colors.gradients.secondary}

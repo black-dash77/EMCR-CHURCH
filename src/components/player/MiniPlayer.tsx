@@ -2,8 +2,9 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Play, Pause, SkipForward, X, Download } from 'lucide-react-native';
-import { useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, Pressable, Image, useColorScheme } from 'react-native';
+import React, { useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, Pressable, useColorScheme } from 'react-native';
+import { Image } from 'expo-image';
 import Animated, {
   useAnimatedStyle,
   withSpring,
@@ -11,7 +12,14 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { TAB_BAR_HEIGHT } from '@/components/TabBarBackground';
-import { useAudioStore } from '@/stores/useAudioStore';
+import {
+  useCurrentSermon,
+  useIsPlaying,
+  useIsLoading,
+  usePlaybackProgress,
+  usePlayerVisibility,
+  useAudioActions,
+} from '@/stores/useAudioStore';
 import { useDownloadStore } from '@/stores/useDownloadStore';
 import { colors, typography, spacing, borderRadius } from '@/theme';
 
@@ -23,17 +31,12 @@ export function MiniPlayer() {
   const isDark = colorScheme === 'dark';
   const themeColors = isDark ? colors.dark : colors.light;
 
-  const {
-    currentSermon,
-    isPlaying,
-    isLoading,
-    currentTime,
-    duration,
-    isPlayerHidden,
-    togglePlayPause,
-    playNext,
-    hidePlayerCompletely,
-  } = useAudioStore();
+  const currentSermon = useCurrentSermon();
+  const isPlaying = useIsPlaying();
+  const isLoading = useIsLoading();
+  const { currentTime, duration } = usePlaybackProgress();
+  const { isPlayerHidden } = usePlayerVisibility();
+  const { togglePlayPause, playNext, hidePlayerCompletely } = useAudioActions();
 
   const { isDownloaded } = useDownloadStore();
   const isCurrentDownloaded = currentSermon ? isDownloaded(currentSermon.id) : false;
@@ -119,6 +122,9 @@ export function MiniPlayer() {
               <Image
                 source={{ uri: currentSermon.cover_image }}
                 style={styles.coverImage}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={200}
               />
             ) : (
               <LinearGradient
@@ -271,4 +277,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MiniPlayer;
+export default React.memo(MiniPlayer);

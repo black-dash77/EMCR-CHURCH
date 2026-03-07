@@ -15,12 +15,12 @@ import {
   Modal,
   Pressable,
   TextInput,
-  Image,
   useColorScheme,
   ActivityIndicator,
   ScrollView,
   Platform,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { seminarsApi, speakersApi } from '@/services/api';
@@ -194,7 +194,7 @@ export function CreateSeminarModal({
             disabled={uploading}
           >
             {coverImage ? (
-              <Image source={{ uri: coverImage }} style={styles.coverImage} />
+              <Image source={{ uri: coverImage }} style={styles.coverImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
             ) : (
               <LinearGradient
                 colors={colors.gradients.primarySoft}
@@ -281,6 +281,9 @@ export function CreateSeminarModal({
                     <Image
                       source={{ uri: selectedSpeaker.photo_url }}
                       style={styles.speakerAvatar}
+                      contentFit="cover"
+                      cachePolicy="memory-disk"
+                      transition={200}
                     />
                   ) : (
                     <View style={[styles.speakerAvatar, styles.speakerAvatarPlaceholder]}>
@@ -324,6 +327,9 @@ export function CreateSeminarModal({
                       <Image
                         source={{ uri: speaker.photo_url }}
                         style={styles.speakerAvatar}
+                        contentFit="cover"
+                        cachePolicy="memory-disk"
+                        transition={200}
                       />
                     ) : (
                       <View style={[styles.speakerAvatar, styles.speakerAvatarPlaceholder]}>

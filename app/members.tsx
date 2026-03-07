@@ -1,17 +1,17 @@
 import { useRouter } from 'expo-router';
+import { Image } from 'expo-image';
 import { ArrowLeft, User } from 'lucide-react-native';
 import { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
-  FlatList,
   StyleSheet,
   useColorScheme,
   RefreshControl,
   Pressable,
-  Image,
   Dimensions,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -94,7 +94,9 @@ export default function MembersScreen() {
               <Image
                 source={{ uri: imageUrl }}
                 style={styles.memberImage}
-                resizeMode="cover"
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={200}
               />
             ) : (
               <View style={[styles.imagePlaceholder, { backgroundColor: themeColors.surface }]}>
@@ -156,7 +158,7 @@ export default function MembersScreen() {
       </View>
 
       {/* Content */}
-      <FlatList
+      <FlashList
         data={sections}
         keyExtractor={(item) => item.title}
         contentContainerStyle={[

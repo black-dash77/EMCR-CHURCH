@@ -16,7 +16,7 @@ import {
   ListPlus,
   Plus,
 } from 'lucide-react-native';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -24,22 +24,23 @@ import {
   useColorScheme,
   ScrollView,
   Pressable,
-  Image,
   RefreshControl,
   ActivityIndicator,
   Dimensions,
   StatusBar,
 } from 'react-native';
+import { Image } from 'expo-image';
 import Animated, { FadeInDown, FadeIn, FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddSermonsToSeminarModal } from '@/components/AddSermonsToSeminarModal';
 import { AddToPlaylistModal } from '@/components/AddToPlaylistModal';
-import { seminarsApi } from '@/services/api';
+import { useSeminarWithSermons } from '@/hooks/queries/useSeminars';
+import { queryClient } from '@/lib/queryClient';
 import { usePlayerStore } from '@/stores/usePlayerStore';
 import { useUserStore } from '@/stores/useUserStore';
 import { colors, typography, spacing, borderRadius } from '@/theme';
-import type { Seminar, Sermon } from '@/types';
+import type { Sermon } from '@/types';
 
 const { width, height } = Dimensions.get('window');
 const HEADER_HEIGHT = height * 0.35;
@@ -52,10 +53,9 @@ export default function SeminarDetailScreen() {
   const themeColors = isDark ? colors.dark : colors.light;
   const insets = useSafeAreaInsets();
 
-  const [seminar, setSeminar] = useState<Seminar | null>(null);
-  const [sermons, setSermons] = useState<Sermon[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const { data, isLoading: loading, isRefetching: refreshing, refetch } = useSeminarWithSermons(id || '');
+  const seminar = data?.seminar ?? null;
+  const sermons = data?.sermons ?? [];
   const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
   const [selectedSermon, setSelectedSermon] = useState<Sermon | null>(null);
   const [addSermonsModalVisible, setAddSermonsModalVisible] = useState(false);
@@ -63,31 +63,13 @@ export default function SeminarDetailScreen() {
   const { setCurrentSermon, setQueue, setIsPlaying } = usePlayerStore();
   const { favorites, addFavorite, removeFavorite } = useUserStore();
 
-  const loadSeminar = useCallback(async () => {
-    if (!id) return;
-
-    try {
-      const data = await seminarsApi.getWithSermons(id);
-      if (data) {
-        setSeminar(data.seminar);
-        setSermons(data.sermons);
-      }
-    } catch (error) {
-      console.error('Error loading seminar:', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+  const onRefresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['seminars', 'detail', id] });
   }, [id]);
 
-  useEffect(() => {
-    loadSeminar();
-  }, [loadSeminar]);
-
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadSeminar();
-  }, [loadSeminar]);
+  const handleSermonsUpdated = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return null;
@@ -205,7 +187,9 @@ export default function SeminarDetailScreen() {
             <Image
               source={{ uri: seminar.cover_image }}
               style={styles.heroImage}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={200}
             />
           ) : (
             <LinearGradient
@@ -272,6 +256,9 @@ export default function SeminarDetailScreen() {
                     <Image
                       source={{ uri: seminar.speaker.photo_url }}
                       style={styles.speakerAvatar}
+                      contentFit="cover"
+                      cachePolicy="memory-disk"
+                      transition={200}
                     />
                   ) : (
                     <View style={[styles.speakerAvatar, styles.speakerAvatarPlaceholder]}>
@@ -394,7 +381,7 @@ export default function SeminarDetailScreen() {
                 {/* Cover Image */}
                 <View style={styles.sermonCover}>
                   {sermon.cover_image ? (
-                    <Image source={{ uri: sermon.cover_image }} style={styles.sermonCoverImage} />
+                    <Image source={{ uri: sermon.cover_image }} style={styles.sermonCoverImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
                   ) : (
                     <LinearGradient
                       colors={colors.gradients.primary}
@@ -472,7 +459,7 @@ export default function SeminarDetailScreen() {
         seminarId={id || ''}
         seminarName={seminar?.name}
         currentSermonIds={sermons.map(s => s.id)}
-        onSermonsUpdated={loadSeminar}
+        onSermonsUpdated={handleSermonsUpdated}
       />
     </View>
   );

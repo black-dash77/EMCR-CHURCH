@@ -10,19 +10,19 @@ import {
   X,
 } from 'lucide-react-native';
 import { useState, useEffect, useCallback } from 'react';
+import { Image } from 'expo-image';
 import {
   View,
   Text,
   StyleSheet,
   useColorScheme,
-  FlatList,
   Pressable,
-  Image,
   TextInput,
   RefreshControl,
   ActivityIndicator,
   Dimensions,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -126,7 +126,9 @@ export default function SeminarsScreen() {
             <Image
               source={{ uri: item.cover_image }}
               style={styles.cover}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={200}
             />
           ) : (
             <LinearGradient
@@ -239,12 +241,11 @@ export default function SeminarsScreen() {
           <ActivityIndicator size="large" color={colors.primary[500]} />
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={filteredSeminars}
           renderItem={renderSeminarCard}
           keyExtractor={(item) => item.id}
           numColumns={2}
-          columnWrapperStyle={styles.row}
           contentContainerStyle={[
             styles.listContent,
             { paddingBottom: insets.bottom + spacing[6] },

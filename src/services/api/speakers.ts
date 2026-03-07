@@ -7,7 +7,8 @@ export const speakersApi = {
     const { data, error } = await supabase
       .from('speakers')
       .select('*')
-      .order('name', { ascending: true });
+      .order('name', { ascending: true })
+      .limit(50);
 
     if (error) throw error;
     return data || [];
@@ -46,26 +47,18 @@ export const speakersApi = {
   },
 
   async getWithSermonCount(): Promise<(Speaker & { sermon_count: number })[]> {
-    const { data: speakers, error: speakersError } = await supabase
+    const { data, error } = await supabase
       .from('speakers')
-      .select('*')
+      .select('*, sermons(count)')
       .order('name', { ascending: true });
 
-    if (speakersError) throw speakersError;
-    if (!speakers) return [];
+    if (error) throw error;
+    if (!data) return [];
 
-    const speakersWithCount = await Promise.all(
-      speakers.map(async (speaker) => {
-        const { count } = await supabase
-          .from('sermons')
-          .select('*', { count: 'exact', head: true })
-          .eq('speaker_id', speaker.id);
-
-        return { ...speaker, sermon_count: count || 0 };
-      })
-    );
-
-    return speakersWithCount;
+    return data.map((speaker) => ({
+      ...speaker,
+      sermon_count: (speaker as any).sermons?.[0]?.count ?? 0,
+    }));
   },
 
   async search(query: string): Promise<Speaker[]> {

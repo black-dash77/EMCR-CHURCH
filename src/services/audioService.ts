@@ -56,7 +56,7 @@ class AudioService {
         {
           shouldPlay: true,
           positionMillis: startPositionMs,
-          progressUpdateIntervalMillis: 500,
+          progressUpdateIntervalMillis: 1000,
         },
         this.handlePlaybackStatusUpdate
       );

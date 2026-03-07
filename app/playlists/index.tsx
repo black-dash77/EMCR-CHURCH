@@ -16,7 +16,6 @@ import {
   Text,
   StyleSheet,
   useColorScheme,
-  FlatList,
   Pressable,
   TextInput,
   Alert,
@@ -24,6 +23,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -198,12 +198,11 @@ export default function PlaylistsScreen() {
       </View>
 
       {/* Content */}
-      <FlatList
+      <FlashList
         data={playlists}
         renderItem={renderPlaylistCard}
         keyExtractor={(item) => item.id}
         numColumns={2}
-        columnWrapperStyle={styles.row}
         contentContainerStyle={[
           styles.listContent,
           { paddingBottom: insets.bottom + spacing[6] },

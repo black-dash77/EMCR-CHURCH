@@ -1,5 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { useNavigationLock } from '@/hooks/useNavigationLock';
@@ -19,7 +20,7 @@ import {
   Video,
   BookOpen,
 } from 'lucide-react-native';
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -28,17 +29,19 @@ import {
   useColorScheme,
   RefreshControl,
   Pressable,
-  Image,
   Dimensions,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { sermonsApi, eventsApi, announcementsApi, seminarsApi } from '@/services/api';
-import { useAudioStore } from '@/stores/useAudioStore';
+import { useLatestSermons } from '@/hooks/queries/useSermons';
+import { useUpcomingEvents } from '@/hooks/queries/useEvents';
+import { useLatestAnnouncements } from '@/hooks/queries/useAnnouncements';
+import { useSeminars } from '@/hooks/queries/useSeminars';
+import { queryClient } from '@/lib/queryClient';
+import { useCurrentSermon, useIsPlaying, useAudioActions } from '@/stores/useAudioStore';
 import { useUserStore } from '@/stores/useUserStore';
 import { colors, typography, spacing, borderRadius } from '@/theme';
-import type { Sermon, Event, Announcement, Seminar } from '@/types';
 
 const { width } = Dimensions.get('window');
 
@@ -49,39 +52,21 @@ export default function HomeScreen() {
   const themeColors = isDark ? colors.dark : colors.light;
   const insets = useSafeAreaInsets();
 
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState<boolean | null>(true);
-  const [latestSermons, setLatestSermons] = useState<Sermon[]>([]);
-  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
-  const [latestAnnouncement, setLatestAnnouncement] = useState<Announcement | null>(null);
-  const [seminars, setSeminars] = useState<Seminar[]>([]);
 
-  const { currentSermon, isPlaying, playSermon, togglePlayPause, setQueue } = useAudioStore();
+  const { data: latestSermons = [], isLoading: loadingSermons } = useLatestSermons(6);
+  const { data: upcomingEvents = [] } = useUpcomingEvents(2);
+  const { data: announcementsData = [] } = useLatestAnnouncements(1);
+  const { data: seminarsData = [] } = useSeminars();
+
+  const latestAnnouncement = announcementsData[0] || null;
+  const seminars = useMemo(() => seminarsData.slice(0, 4), [seminarsData]);
+  const loading = loadingSermons;
+
+  const currentSermon = useCurrentSermon();
+  const isPlaying = useIsPlaying();
+  const { playSermon, togglePlayPause, setQueue } = useAudioActions();
   const { firstName } = useUserStore();
-
-  const fetchData = useCallback(async () => {
-    try {
-      const [sermons, events, announcements, seminarsData] = await Promise.all([
-        sermonsApi.getLatest(6),
-        eventsApi.getUpcoming(2),
-        announcementsApi.getLatest(1),
-        seminarsApi.getAll(),
-      ]);
-      setLatestSermons(sermons);
-      setUpcomingEvents(events);
-      setLatestAnnouncement(announcements[0] || null);
-      setSeminars(seminarsData.slice(0, 4));
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
 
   // Monitor network connectivity
   useEffect(() => {
@@ -91,11 +76,12 @@ export default function HomeScreen() {
     return () => unsubscribe();
   }, []);
 
+  const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchData();
+    await queryClient.invalidateQueries();
     setRefreshing(false);
-  }, [fetchData]);
+  }, []);
 
   // Filter sermons by type
   const sermonsByType = useMemo(() => {
@@ -251,6 +237,9 @@ export default function HomeScreen() {
                   <Image
                     source={{ uri: featuredSermon.cover_image }}
                     style={styles.featuredImage}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    transition={200}
                   />
                 ) : (
                   <LinearGradient
@@ -346,7 +335,7 @@ export default function HomeScreen() {
               {/* Image ou icône */}
               <View style={styles.announcementImageContainer}>
                 {latestAnnouncement.image ? (
-                  <Image source={{ uri: latestAnnouncement.image }} style={styles.announcementImage} />
+                  <Image source={{ uri: latestAnnouncement.image }} style={styles.announcementImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
                 ) : (
                   <LinearGradient
                     colors={latestAnnouncement.urgent
@@ -445,7 +434,7 @@ export default function HomeScreen() {
                 >
                   <View style={styles.sermonImageContainer}>
                     {sermon.cover_image ? (
-                      <Image source={{ uri: sermon.cover_image }} style={styles.sermonImage} />
+                      <Image source={{ uri: sermon.cover_image }} style={styles.sermonImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
                     ) : (
                       <LinearGradient
                         colors={[colors.primary[300], colors.primary[600]]}
@@ -511,7 +500,7 @@ export default function HomeScreen() {
                 >
                   <View style={styles.sermonImageContainer}>
                     {seminar.cover_image ? (
-                      <Image source={{ uri: seminar.cover_image }} style={styles.sermonImage} />
+                      <Image source={{ uri: seminar.cover_image }} style={styles.sermonImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
                     ) : (
                       <LinearGradient
                         colors={['#10B981', '#047857']}
@@ -581,7 +570,7 @@ export default function HomeScreen() {
                 >
                   <View style={styles.sermonImageContainer}>
                     {latestAdoration.cover_image ? (
-                      <Image source={{ uri: latestAdoration.cover_image }} style={styles.sermonImage} />
+                      <Image source={{ uri: latestAdoration.cover_image }} style={styles.sermonImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
                     ) : (
                       <LinearGradient
                         colors={['#EC4899', '#BE185D']}
@@ -620,7 +609,7 @@ export default function HomeScreen() {
                 >
                   <View style={styles.sermonImageContainer}>
                     {latestLouange.cover_image ? (
-                      <Image source={{ uri: latestLouange.cover_image }} style={styles.sermonImage} />
+                      <Image source={{ uri: latestLouange.cover_image }} style={styles.sermonImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
                     ) : (
                       <LinearGradient
                         colors={['#8B5CF6', '#6D28D9']}
@@ -670,7 +659,7 @@ export default function HomeScreen() {
               {/* Thumbnail avec date en overlay */}
               <View style={styles.eventThumbnailContainer}>
                 {nextEvent.image ? (
-                  <Image source={{ uri: nextEvent.image }} style={styles.eventThumbnail} />
+                  <Image source={{ uri: nextEvent.image }} style={styles.eventThumbnail} contentFit="cover" cachePolicy="memory-disk" transition={200} />
                 ) : (
                   <LinearGradient
                     colors={colors.gradients.primarySoft}
@@ -732,7 +721,7 @@ export default function HomeScreen() {
                 {/* Thumbnail avec date en overlay */}
                 <View style={styles.eventThumbnailContainerSmall}>
                   {upcomingEvents[1].image ? (
-                    <Image source={{ uri: upcomingEvents[1].image }} style={styles.eventThumbnail} />
+                    <Image source={{ uri: upcomingEvents[1].image }} style={styles.eventThumbnail} contentFit="cover" cachePolicy="memory-disk" transition={200} />
                   ) : (
                     <LinearGradient
                       colors={colors.gradients.primarySoft}

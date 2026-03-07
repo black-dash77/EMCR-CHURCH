@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -16,7 +17,6 @@ import {
   useColorScheme,
   ScrollView,
   Pressable,
-  Image,
   Dimensions,
   Share,
   ActivityIndicator,
@@ -121,7 +121,9 @@ export default function AnnouncementDetailScreen() {
               <Image
                 source={{ uri: announcement.image! }}
                 style={styles.headerImage}
-                resizeMode="cover"
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={200}
               />
               <LinearGradient
                 colors={['transparent', 'rgba(0,0,0,0.7)']}

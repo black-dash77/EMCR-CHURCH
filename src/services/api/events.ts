@@ -7,7 +7,8 @@ export const eventsApi = {
     const { data, error } = await supabase
       .from('events')
       .select('*')
-      .order('date', { ascending: true });
+      .order('date', { ascending: true })
+      .limit(50);
 
     if (error) throw error;
     return data || [];

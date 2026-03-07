@@ -12,7 +12,8 @@ export const announcementsApi = {
     const { data, error } = await supabase
       .from('announcements')
       .select('*')
-      .order('date', { ascending: false });
+      .order('date', { ascending: false })
+      .limit(50);
 
     if (error) throw error;
     return data || [];

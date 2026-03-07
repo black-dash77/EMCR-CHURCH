@@ -524,4 +524,43 @@ export const useAudioStore = create<AudioState>()(
   )
 );
 
+// Granular selectors to minimize re-renders
+export const useCurrentSermon = () => useAudioStore((s) => s.currentSermon);
+export const useIsPlaying = () => useAudioStore((s) => s.isPlaying);
+export const useIsLoading = () => useAudioStore((s) => s.isLoading);
+export const usePlaybackProgress = () =>
+  useAudioStore((s) => ({ currentTime: s.currentTime, duration: s.duration }));
+export const usePlayerVisibility = () =>
+  useAudioStore((s) => ({ isPlayerHidden: s.isPlayerHidden, isPlayerCompletelyHidden: s.isPlayerCompletelyHidden }));
+export const usePlaybackSettings = () =>
+  useAudioStore((s) => ({ playbackRate: s.playbackRate, repeatMode: s.repeatMode, shuffleEnabled: s.shuffleEnabled, volume: s.volume }));
+export const useAudioQueue = () =>
+  useAudioStore((s) => ({ queue: s.queue, currentIndex: s.currentIndex }));
+export const useSleepTimer = () =>
+  useAudioStore((s) => ({ sleepTimerEndTime: s.sleepTimerEndTime, sleepTimerRemaining: s.sleepTimerRemaining }));
+export const useAudioActions = () =>
+  useAudioStore((s) => ({
+    playSermon: s.playSermon,
+    togglePlayPause: s.togglePlayPause,
+    pause: s.pause,
+    play: s.play,
+    seek: s.seek,
+    skipForward: s.skipForward,
+    skipBackward: s.skipBackward,
+    playNext: s.playNext,
+    playPrevious: s.playPrevious,
+    setPlaybackRate: s.setPlaybackRate,
+    setVolume: s.setVolume,
+    toggleRepeat: s.toggleRepeat,
+    toggleShuffle: s.toggleShuffle,
+    addToQueue: s.addToQueue,
+    removeFromQueue: s.removeFromQueue,
+    clearQueue: s.clearQueue,
+    setQueue: s.setQueue,
+    setSleepTimer: s.setSleepTimer,
+    hidePlayer: s.hidePlayer,
+    showPlayer: s.showPlayer,
+    hidePlayerCompletely: s.hidePlayerCompletely,
+  }));
+
 export default useAudioStore;

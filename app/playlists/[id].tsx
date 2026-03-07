@@ -17,6 +17,7 @@ import {
   Plus,
 } from 'lucide-react-native';
 import { useState, useEffect, useCallback } from 'react';
+import { Image } from 'expo-image';
 import {
   View,
   Text,
@@ -24,7 +25,6 @@ import {
   useColorScheme,
   ScrollView,
   Pressable,
-  Image,
   Alert,
   Dimensions,
 } from 'react-native';
@@ -347,6 +347,9 @@ export default function PlaylistDetailScreen() {
                       <Image
                         source={{ uri: sermon.cover_image }}
                         style={styles.thumbnailImage}
+                        contentFit="cover"
+                        cachePolicy="memory-disk"
+                        transition={200}
                       />
                     ) : (
                       <LinearGradient

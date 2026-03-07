@@ -14,10 +14,10 @@ import {
   Pressable,
   FlatList,
   TextInput,
-  Image,
   useColorScheme,
   ActivityIndicator,
 } from 'react-native';
+import { Image } from 'expo-image';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { sermonsApi, seminarsApi } from '@/services/api';
@@ -250,6 +250,9 @@ export function AddSermonsToSeminarModal({
                         <Image
                           source={{ uri: item.cover_image }}
                           style={styles.thumbnailImage}
+                          contentFit="cover"
+                          cachePolicy="memory-disk"
+                          transition={200}
                         />
                       ) : (
                         <LinearGradient

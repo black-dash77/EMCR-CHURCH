@@ -3,21 +3,21 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigationLock } from '@/hooks/useNavigationLock';
 import { ChevronLeft, Heart, Play, Clock } from 'lucide-react-native';
 import { useEffect, useState, useCallback } from 'react';
+import { Image } from 'expo-image';
 import {
   View,
   Text,
-  FlatList,
   StyleSheet,
   useColorScheme,
   Pressable,
-  Image,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TransparentHeaderBackground, HEADER_HEIGHT } from '@/components/TransparentHeaderBackground';
 import { sermonsApi } from '@/services/api';
-import { useAudioStore } from '@/stores/useAudioStore';
+import { useCurrentSermon, useIsPlaying, useAudioActions } from '@/stores/useAudioStore';
 import { useUserStore } from '@/stores/useUserStore';
 import { colors, typography, spacing, borderRadius } from '@/theme';
 import type { Sermon } from '@/types';
@@ -31,7 +31,9 @@ export default function FavoritesScreen() {
 
   const [allSermons, setAllSermons] = useState<Sermon[]>([]);
   const { favorites, getFavoriteSermons, toggleFavorite } = useUserStore();
-  const { playSermon, currentSermon, isPlaying } = useAudioStore();
+  const currentSermon = useCurrentSermon();
+  const isPlaying = useIsPlaying();
+  const { playSermon } = useAudioActions();
 
   const favoriteSermons = getFavoriteSermons(allSermons);
 
@@ -72,7 +74,7 @@ export default function FavoritesScreen() {
       >
         <View style={styles.sermonCover}>
           {item.cover_image ? (
-            <Image source={{ uri: item.cover_image }} style={styles.sermonImage} />
+            <Image source={{ uri: item.cover_image }} style={styles.sermonImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
           ) : (
             <LinearGradient
               colors={[colors.primary[400], colors.primary[600]]}
@@ -142,7 +144,7 @@ export default function FavoritesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-      <FlatList
+      <FlashList
         data={favoriteSermons}
         renderItem={renderSermon}
         keyExtractor={(item) => item.id}

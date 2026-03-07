@@ -10,12 +10,18 @@ import {
   Play,
   Pause,
 } from 'lucide-react-native';
-import { useColorScheme, Platform, View, StyleSheet, Pressable, Image } from 'react-native';
+import { useColorScheme, Platform, View, StyleSheet, Pressable } from 'react-native';
+import { Image } from 'expo-image';
 import Animated, { FadeIn, FadeOut, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 import { MiniPlayer } from '@/components/player';
 import { TabBarBackground, TAB_BAR_HEIGHT } from '@/components/TabBarBackground';
-import { useAudioStore } from '@/stores/useAudioStore';
+import {
+  useCurrentSermon,
+  useIsPlaying,
+  usePlayerVisibility,
+  useAudioActions,
+} from '@/stores/useAudioStore';
 import { colors, borderRadius, spacing } from '@/theme';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -41,7 +47,10 @@ function TabIcon({
 }
 
 function FloatingPlayButton() {
-  const { currentSermon, isPlayerHidden, isPlayerCompletelyHidden, isPlaying, showPlayer, togglePlayPause } = useAudioStore();
+  const currentSermon = useCurrentSermon();
+  const isPlaying = useIsPlaying();
+  const { isPlayerHidden, isPlayerCompletelyHidden } = usePlayerVisibility();
+  const { showPlayer, togglePlayPause } = useAudioActions();
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -75,7 +84,7 @@ function FloatingPlayButton() {
       >
         {/* Cover image */}
         {currentSermon.cover_image ? (
-          <Image source={{ uri: currentSermon.cover_image }} style={styles.floatingCover} />
+          <Image source={{ uri: currentSermon.cover_image }} style={styles.floatingCover} contentFit="cover" cachePolicy="memory-disk" transition={200} />
         ) : (
           <LinearGradient
             colors={[colors.primary[400], colors.primary[600]]}
@@ -106,7 +115,7 @@ export default function TabLayout() {
         screenOptions={{
           headerShown: false,
           animation: 'none',
-          lazy: false,
+          lazy: true,
 
           // Couleurs - blanc inactif, bleu actif
           tabBarActiveTintColor: colors.primary[500],
@@ -162,7 +171,6 @@ export default function TabLayout() {
           name="events"
           options={{
             title: 'Événements',
-            href: null, // Caché - disponible dans Prédications
             tabBarIcon: ({ color, focused }) => (
               <TabIcon Icon={Calendar} color={color} focused={focused} />
             ),
@@ -172,7 +180,6 @@ export default function TabLayout() {
           name="announcements"
           options={{
             title: 'Annonces',
-            href: null, // Caché - disponible dans Prédications
             tabBarIcon: ({ color, focused }) => (
               <TabIcon Icon={Bell} color={color} focused={focused} />
             ),
