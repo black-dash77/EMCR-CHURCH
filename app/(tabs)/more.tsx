@@ -4,6 +4,7 @@ import {
   Church,
   Shield,
   Download,
+  FileText,
 } from 'lucide-react-native';
 import {
   View,
@@ -61,6 +62,25 @@ export default function MoreScreen() {
           label: 'Téléchargements',
           description: 'Écouter hors ligne',
           route: '/downloads',
+        },
+      ],
+    },
+    {
+      title: 'Legal',
+      items: [
+        {
+          icon: <FileText size={20} color="#FFFFFF" />,
+          iconBg: '#6366F1',
+          label: 'Politique de Confidentialite',
+          description: 'Vos donnees et votre vie privee',
+          route: '/legal/privacy-policy',
+        },
+        {
+          icon: <FileText size={20} color="#FFFFFF" />,
+          iconBg: '#8B5CF6',
+          label: 'Conditions d\'Utilisation',
+          description: 'Regles d\'utilisation de l\'app',
+          route: '/legal/terms-of-service',
         },
       ],
     },

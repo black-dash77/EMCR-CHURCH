@@ -251,6 +251,20 @@ export default function RootLayout() {
                 animation: 'slide_from_right',
               }}
             />
+            <Stack.Screen
+              name="legal/privacy-policy"
+              options={{
+                presentation: 'card',
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="legal/terms-of-service"
+              options={{
+                presentation: 'card',
+                animation: 'slide_from_right',
+              }}
+            />
           </Stack>
           <GlobalMiniPlayer />
         </View>
