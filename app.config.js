@@ -21,7 +21,7 @@ export default {
     icon: './assets/icon.png',
     scheme: 'emcr',
     userInterfaceStyle: 'dark',
-    newArchEnabled: false,
+    newArchEnabled: true,
     splash: {
       image: './assets/splash-icon.png',
       resizeMode: 'contain',
