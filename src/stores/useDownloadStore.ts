@@ -74,7 +74,6 @@ export const useDownloadStore = create<DownloadState>()(
               await FileSystem.deleteAsync(download.localUri);
             }
           } catch (error) {
-            console.error('Error deleting file:', error);
           }
         }
 
@@ -145,7 +144,6 @@ export const useDownloadStore = create<DownloadState>()(
               await FileSystem.deleteAsync(download.localUri);
             }
           } catch (error) {
-            console.error('Error deleting file:', error);
           }
         }
 

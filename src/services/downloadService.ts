@@ -44,7 +44,6 @@ class DownloadService {
 
     // Check if audio URL exists
     if (!sermon.audio_url) {
-      console.error('Download failed: No audio URL for sermon', sermon.id);
       return {
         success: false,
         error: 'Cette prédication n\'a pas de fichier audio disponible.',
@@ -77,8 +76,6 @@ class DownloadService {
 
       store.setDownloadProgress(sermon.id, 0, 'downloading');
 
-      console.log('Starting download from:', sermon.audio_url);
-      console.log('Saving to:', localUri);
 
       const downloadResumable = FileSystem.createDownloadResumable(
         sermon.audio_url,
@@ -98,7 +95,6 @@ class DownloadService {
         const fileInfo = await FileSystem.getInfoAsync(result.uri);
         const fileSize = (fileInfo as { exists: boolean; size?: number }).size || 0;
 
-        console.log('Download completed:', result.uri, 'Size:', fileSize);
 
         store.addDownload(sermon, result.uri, fileSize);
         store.setDownloadProgress(sermon.id, 1, 'completed');
@@ -112,7 +108,6 @@ class DownloadService {
       throw new Error('Download failed - no result URI');
     } catch (error) {
       store.setDownloadProgress(sermon.id, 0, 'error');
-      console.error('Download error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Erreur de téléchargement',
@@ -145,7 +140,6 @@ class DownloadService {
       const filename = this.generateFilename(sermon);
       const tempUri = `${FileSystem.documentDirectory}${filename}`;
 
-      console.log('Downloading to device from:', sermon.audio_url);
 
       const downloadResumable = FileSystem.createDownloadResumable(
         sermon.audio_url,
@@ -164,21 +158,18 @@ class DownloadService {
         throw new Error('Download failed - no result URI');
       }
 
-      console.log('Downloaded to temp:', result.uri);
 
       // Save to media library (Android only for audio)
       if (Platform.OS === 'android') {
         try {
           const asset = await MediaLibrary.createAssetAsync(result.uri);
           await MediaLibrary.createAlbumAsync('EMCR Church', asset, false);
-          console.log('Saved to media library');
 
           // Clean up temp file
           await FileSystem.deleteAsync(result.uri, { idempotent: true });
 
           return { success: true, savedToDevice: true };
         } catch (mediaError) {
-          console.error('MediaLibrary error:', mediaError);
           // Keep file in temp location on error
           return {
             success: true,
@@ -190,7 +181,6 @@ class DownloadService {
       } else {
         // iOS: Keep file in documents directory (iOS doesn't allow saving audio to media library)
         // But we can use Sharing to let user save it
-        console.log('iOS: File saved to documents directory');
         return {
           success: true,
           localUri: result.uri,
@@ -198,7 +188,6 @@ class DownloadService {
         };
       }
     } catch (error) {
-      console.error('Download to device error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Erreur de téléchargement',

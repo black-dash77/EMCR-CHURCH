@@ -76,7 +76,6 @@ export function CreateSeminarModal({
       const data = await speakersApi.getAll();
       setSpeakers(data);
     } catch (error) {
-      console.error('Error loading speakers:', error);
     }
   };
 
@@ -115,7 +114,6 @@ export function CreateSeminarModal({
 
       setCoverImage(publicUrl);
     } catch (error) {
-      console.error('Error uploading image:', error);
     } finally {
       setUploading(false);
     }
@@ -138,7 +136,6 @@ export function CreateSeminarModal({
       onSeminarCreated();
       onClose();
     } catch (error) {
-      console.error('Error creating seminar:', error);
     } finally {
       setLoading(false);
     }

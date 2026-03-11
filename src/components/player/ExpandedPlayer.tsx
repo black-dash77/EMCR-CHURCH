@@ -162,7 +162,6 @@ export function ExpandedPlayer() {
         }
       } catch (_error) {
         if (isMounted) {
-          console.error('Error fetching speaker');
         }
       }
     };
@@ -252,7 +251,6 @@ export function ExpandedPlayer() {
         url: shareUrl, // Pour iOS
       });
     } catch (_error) {
-      console.error('Error sharing');
     }
   };
 
@@ -287,7 +285,6 @@ export function ExpandedPlayer() {
         );
       }
     } catch (error) {
-      console.error('Download error:', error);
       Alert.alert(
         'Erreur de téléchargement',
         'Une erreur est survenue lors du téléchargement. Veuillez réessayer.',

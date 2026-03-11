@@ -69,7 +69,6 @@ class YouTubeMusicService {
         }
       }
     } catch (error) {
-      console.error('Error loading YouTube auth:', error);
     }
   }
 
@@ -80,7 +79,6 @@ class YouTubeMusicService {
 
   async authenticate(): Promise<boolean> {
     if (!YOUTUBE_CLIENT_ID) {
-      console.error('YouTube Client ID not configured');
       return false;
     }
 
@@ -135,7 +133,6 @@ class YouTubeMusicService {
 
       return false;
     } catch (error) {
-      console.error('YouTube authentication error:', error);
       return false;
     }
   }
@@ -176,7 +173,6 @@ class YouTubeMusicService {
       await this.saveAuth(auth);
       return true;
     } catch (error) {
-      console.error('Error refreshing YouTube token:', error);
       await this.disconnect();
       return false;
     }
@@ -198,7 +194,6 @@ class YouTubeMusicService {
       const data = await response.json();
       return data.items?.[0] || null;
     } catch (error) {
-      console.error('Error getting YouTube channel:', error);
       return null;
     }
   }
@@ -219,7 +214,6 @@ class YouTubeMusicService {
     privacyStatus: 'public' | 'private' | 'unlisted' = 'private'
   ): Promise<YouTubePlaylist | null> {
     if (!this.auth?.accessToken) {
-      console.error('Not authenticated with YouTube');
       return null;
     }
 
@@ -250,7 +244,6 @@ class YouTubeMusicService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error creating YouTube playlist:', error);
       return null;
     }
   }
@@ -273,7 +266,6 @@ class YouTubeMusicService {
       const data = await response.json();
       return data.items?.[0]?.id?.videoId || null;
     } catch (error) {
-      console.error('Error searching YouTube video:', error);
       return null;
     }
   }
@@ -304,7 +296,6 @@ class YouTubeMusicService {
 
       return response.ok;
     } catch (error) {
-      console.error('Error adding video to YouTube playlist:', error);
       return false;
     }
   }

@@ -37,7 +37,6 @@ class AppleMusicService {
         this.auth = JSON.parse(stored);
       }
     } catch (error) {
-      console.error('Error loading Apple Music auth:', error);
     }
   }
 
@@ -59,7 +58,6 @@ class AppleMusicService {
    */
   async authenticate(): Promise<boolean> {
     if (!this.isAvailable) {
-      console.log('Apple Music is only available on iOS');
       return false;
     }
 
@@ -70,7 +68,6 @@ class AppleMusicService {
       // 3. Store the token for API requests
 
       // For now, we'll show a placeholder implementation
-      console.log('Apple Music authentication requires native MusicKit setup');
 
       // Open Apple Music app as a fallback
       const canOpen = await Linking.canOpenURL('music://');
@@ -81,7 +78,6 @@ class AppleMusicService {
 
       return false;
     } catch (error) {
-      console.error('Apple Music authentication error:', error);
       return false;
     }
   }
@@ -105,7 +101,6 @@ class AppleMusicService {
     description?: string
   ): Promise<AppleMusicPlaylist | null> {
     if (!this.auth?.accessToken) {
-      console.error('Not authenticated with Apple Music');
       return null;
     }
 
@@ -114,10 +109,8 @@ class AppleMusicService {
       // POST https://api.music.apple.com/v1/me/library/playlists
       // with the proper authorization headers
 
-      console.log('Apple Music playlist creation requires full MusicKit integration');
       return null;
     } catch (error) {
-      console.error('Error creating Apple Music playlist:', error);
       return null;
     }
   }
@@ -133,10 +126,8 @@ class AppleMusicService {
       // GET https://api.music.apple.com/v1/catalog/{storefront}/search
       // with the search query and proper authorization
 
-      console.log('Apple Music search requires full MusicKit integration');
       return null;
     } catch (error) {
-      console.error('Error searching Apple Music:', error);
       return null;
     }
   }
@@ -152,10 +143,8 @@ class AppleMusicService {
       // POST https://api.music.apple.com/v1/me/library/playlists/{id}/tracks
       // with the song IDs and proper authorization
 
-      console.log('Apple Music track addition requires full MusicKit integration');
       return false;
     } catch (error) {
-      console.error('Error adding songs to Apple Music playlist:', error);
       return false;
     }
   }
@@ -172,7 +161,6 @@ class AppleMusicService {
       }
       return false;
     } catch (error) {
-      console.error('Error opening Apple Music:', error);
       return false;
     }
   }

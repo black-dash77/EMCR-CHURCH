@@ -4,8 +4,6 @@ import { Tabs } from 'expo-router';
 import {
   Home,
   Headphones,
-  Calendar,
-  Bell,
   Menu,
   Play,
   Pause,
@@ -170,19 +168,13 @@ export default function TabLayout() {
         <Tabs.Screen
           name="events"
           options={{
-            title: 'Événements',
-            tabBarIcon: ({ color, focused }) => (
-              <TabIcon Icon={Calendar} color={color} focused={focused} />
-            ),
+            href: null,
           }}
         />
         <Tabs.Screen
           name="announcements"
           options={{
-            title: 'Annonces',
-            tabBarIcon: ({ color, focused }) => (
-              <TabIcon Icon={Bell} color={color} focused={focused} />
-            ),
+            href: null,
           }}
         />
         <Tabs.Screen

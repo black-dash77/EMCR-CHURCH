@@ -79,7 +79,6 @@ export function AddSermonsToSeminarModal({
         setInitialSermonIds(currentSermonIds);
       }
     } catch (error) {
-      console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
@@ -123,7 +122,6 @@ export function AddSermonsToSeminarModal({
       onSermonsUpdated();
       onClose();
     } catch (error) {
-      console.error('Error updating seminar sermons:', error);
     } finally {
       setSaving(false);
     }

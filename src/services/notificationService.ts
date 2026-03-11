@@ -46,7 +46,6 @@ class NotificationService {
 
       return token;
     } catch (error) {
-      console.error('Error initializing notifications:', error);
       return null;
     }
   }
@@ -57,7 +56,6 @@ class NotificationService {
   async registerForPushNotifications(): Promise<string | null> {
     // Must be a physical device
     if (!Device.isDevice) {
-      console.log('Push notifications require a physical device');
       return null;
     }
 
@@ -72,7 +70,6 @@ class NotificationService {
     }
 
     if (finalStatus !== 'granted') {
-      console.log('Failed to get push token: permission denied');
       return null;
     }
 
@@ -85,7 +82,6 @@ class NotificationService {
       });
 
       const token = tokenResponse.data;
-      if (__DEV__) console.log('Push token:', token);
 
       // Set up Android channel
       if (Platform.OS === 'android') {
@@ -99,7 +95,6 @@ class NotificationService {
 
       return token;
     } catch (error) {
-      console.error('Error getting push token:', error);
       return null;
     }
   }
@@ -125,12 +120,10 @@ class NotificationService {
 
       if (error) throw error;
 
-      console.log('Device token saved successfully');
 
       // Create default notification preferences
       await this.initializePreferences(token);
     } catch (error) {
-      console.error('Error saving device token:', error);
     }
   }
 
@@ -165,7 +158,6 @@ class NotificationService {
         new_announcements: true,
       });
     } catch (error) {
-      console.error('Error initializing preferences:', error);
     }
   }
 
@@ -198,7 +190,6 @@ class NotificationService {
         newAnnouncements: data.new_announcements,
       };
     } catch (error) {
-      console.error('Error getting preferences:', error);
       return null;
     }
   }
@@ -236,7 +227,6 @@ class NotificationService {
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error updating preferences:', error);
     }
   }
 
@@ -348,7 +338,6 @@ class NotificationService {
 
       this.expoPushToken = null;
     } catch (error) {
-      console.error('Error deleting device token:', error);
     }
   }
 }

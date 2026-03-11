@@ -63,7 +63,6 @@ class SpotifyService {
         }
       }
     } catch (error) {
-      console.error('Error loading Spotify auth:', error);
     }
   }
 
@@ -74,7 +73,6 @@ class SpotifyService {
 
   async authenticate(): Promise<boolean> {
     if (!SPOTIFY_CLIENT_ID) {
-      console.error('Spotify Client ID not configured');
       return false;
     }
 
@@ -129,7 +127,6 @@ class SpotifyService {
 
       return false;
     } catch (error) {
-      console.error('Spotify authentication error:', error);
       return false;
     }
   }
@@ -170,7 +167,6 @@ class SpotifyService {
       await this.saveAuth(auth);
       return true;
     } catch (error) {
-      console.error('Error refreshing Spotify token:', error);
       await this.disconnect();
       return false;
     }
@@ -187,7 +183,6 @@ class SpotifyService {
       if (!response.ok) return null;
       return await response.json();
     } catch (error) {
-      console.error('Error getting Spotify user info:', error);
       return null;
     }
   }
@@ -204,7 +199,6 @@ class SpotifyService {
 
   async createPlaylist(name: string, description?: string): Promise<SpotifyPlaylist | null> {
     if (!this.auth?.accessToken || !this.auth?.userId) {
-      console.error('Not authenticated with Spotify');
       return null;
     }
 
@@ -231,7 +225,6 @@ class SpotifyService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error creating Spotify playlist:', error);
       return null;
     }
   }
@@ -254,7 +247,6 @@ class SpotifyService {
       const data = await response.json();
       return data.tracks?.items?.[0]?.uri || null;
     } catch (error) {
-      console.error('Error searching Spotify track:', error);
       return null;
     }
   }
@@ -279,7 +271,6 @@ class SpotifyService {
 
       return response.ok;
     } catch (error) {
-      console.error('Error adding tracks to Spotify playlist:', error);
       return false;
     }
   }

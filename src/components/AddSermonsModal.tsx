@@ -60,7 +60,6 @@ export function AddSermonsModal({
       const data = await sermonsApi.getAll();
       setSermons(data);
     } catch (error) {
-      console.error('Error loading sermons:', error);
     } finally {
       setLoading(false);
     }

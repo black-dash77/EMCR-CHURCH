@@ -22,7 +22,6 @@ class AudioService {
       });
       this.isInitialized = true;
     } catch (error) {
-      console.error('Failed to initialize audio:', error);
       throw error;
     }
   }
@@ -63,14 +62,12 @@ class AudioService {
 
       this.sound = sound;
     } catch (error) {
-      console.error('Failed to load audio:', error);
       throw error;
     }
   }
 
   async play(): Promise<void> {
     if (!this.sound) {
-      console.warn('Play called but no sound loaded');
       return;
     }
     try {
@@ -79,13 +76,11 @@ class AudioService {
         await this.sound.playAsync();
       }
     } catch (error) {
-      console.error('Failed to play:', error);
     }
   }
 
   async pause(): Promise<void> {
     if (!this.sound) {
-      console.warn('Pause called but no sound loaded');
       return;
     }
     try {
@@ -94,12 +89,10 @@ class AudioService {
         await this.sound.pauseAsync();
       }
     } catch (error) {
-      console.error('Failed to pause:', error);
       // Try to reinitialize if sound object is corrupted
       try {
         await this.initialize();
       } catch (initError) {
-        console.error('Failed to reinitialize audio:', initError);
       }
     }
   }
@@ -109,7 +102,6 @@ class AudioService {
     try {
       await this.sound.stopAsync();
     } catch (error) {
-      console.error('Failed to stop:', error);
     }
   }
 
@@ -118,7 +110,6 @@ class AudioService {
     try {
       await this.sound.setPositionAsync(positionMs);
     } catch (error) {
-      console.error('Failed to seek:', error);
     }
   }
 
@@ -127,7 +118,6 @@ class AudioService {
     try {
       await this.sound.setRateAsync(rate, true);
     } catch (error) {
-      console.error('Failed to set rate:', error);
     }
   }
 
@@ -136,7 +126,6 @@ class AudioService {
     try {
       await this.sound.setVolumeAsync(volume);
     } catch (error) {
-      console.error('Failed to set volume:', error);
     }
   }
 
@@ -152,7 +141,6 @@ class AudioService {
         await this.sound.setPositionAsync(newPosition);
       }
     } catch (error) {
-      console.error('Failed to skip forward:', error);
     }
   }
 
@@ -165,7 +153,6 @@ class AudioService {
         await this.sound.setPositionAsync(newPosition);
       }
     } catch (error) {
-      console.error('Failed to skip backward:', error);
     }
   }
 
@@ -177,7 +164,6 @@ class AudioService {
         return status.positionMillis;
       }
     } catch (error) {
-      console.error('Failed to get position:', error);
     }
     return 0;
   }
@@ -187,7 +173,6 @@ class AudioService {
       try {
         await this.sound.unloadAsync();
       } catch (error) {
-        console.error('Failed to unload:', error);
       }
       this.sound = null;
     }

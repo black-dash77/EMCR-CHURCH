@@ -167,7 +167,6 @@ export const settingsApi = {
 
     if (error) {
       // Si la table n'existe pas ou aucun enregistrement, retourner les valeurs par défaut
-      console.warn('Settings not found, using defaults');
       return null;
     }
     return data;

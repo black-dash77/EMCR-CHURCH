@@ -111,7 +111,6 @@ export const useAudioStore = create<AudioState>()(
 
         // Check if sermon has a valid audio URL
         if (!sermon.audio_url) {
-          console.error('Sermon has no audio URL:', sermon.id, sermon.title);
           set({ isLoading: false, isPlaying: false });
           return;
         }
@@ -131,15 +130,12 @@ export const useAudioStore = create<AudioState>()(
             if (fileInfo.exists && fileSize && fileSize > 10000) {
               audioUrl = localUri;
               useLocalFile = true;
-              console.log('Using local file:', localUri, 'Size:', fileSize);
             } else {
               // File doesn't exist or is too small (corrupted), clean up
-              console.warn('Local file invalid or too small, removing download record');
               await downloadStore.removeDownload(sermon.id);
             }
           } catch (e) {
             // If we can't check, use the remote URL
-            console.warn('Could not verify local file, using remote URL:', e);
           }
         }
 
@@ -167,21 +163,16 @@ export const useAudioStore = create<AudioState>()(
           // Add to history
           useUserStore.getState().addToHistory(sermon.id);
         } catch (error) {
-          console.error('Failed to play sermon:', error);
-          console.error('Audio URL attempted:', audioUrl);
 
           // If local file failed, try remote URL as fallback
           if (useLocalFile && sermon.audio_url) {
-            console.log('Local file failed, cleaning up and retrying with remote URL...');
             // Clean up the corrupted download
             try {
               await downloadStore.removeDownload(sermon.id);
             } catch (e) {
-              console.warn('Failed to remove download record:', e);
             }
 
             try {
-              console.log('Retrying with remote URL:', sermon.audio_url);
               await audioService.loadAudio(sermon.audio_url, startPositionMs);
               await audioService.setPlaybackRate(playbackRate);
               await audioService.setVolume(volume);
@@ -191,7 +182,6 @@ export const useAudioStore = create<AudioState>()(
               useUserStore.getState().addToHistory(sermon.id);
               return;
             } catch (fallbackError) {
-              console.error('Remote URL also failed:', fallbackError);
             }
           }
 
@@ -202,7 +192,6 @@ export const useAudioStore = create<AudioState>()(
       togglePlayPause: async () => {
         const { isPlaying, currentSermon } = get();
         if (!currentSermon) {
-          console.warn('togglePlayPause called but no sermon loaded');
           return;
         }
         try {
@@ -212,7 +201,6 @@ export const useAudioStore = create<AudioState>()(
             await audioService.play();
           }
         } catch (error) {
-          console.error('togglePlayPause error:', error);
           // Force state update if audio service fails
           set({ isPlaying: !isPlaying });
         }
@@ -224,7 +212,6 @@ export const useAudioStore = create<AudioState>()(
           set({ isPlaying: false });
           get().savePlaybackPosition();
         } catch (error) {
-          console.error('pause error:', error);
           set({ isPlaying: false });
         }
       },
@@ -234,7 +221,6 @@ export const useAudioStore = create<AudioState>()(
           await audioService.play();
           set({ isPlaying: true });
         } catch (error) {
-          console.error('play error:', error);
         }
       },
 
@@ -448,7 +434,6 @@ export const useAudioStore = create<AudioState>()(
       handlePlaybackStatusUpdate: (status) => {
         if (!status.isLoaded) {
           if (status.error) {
-            console.error('Playback error:', status.error);
           }
           return;
         }
@@ -505,7 +490,6 @@ export const useAudioStore = create<AudioState>()(
           // Clean up the status callback to prevent memory leaks
           audioService.clearStatusCallback();
         } catch (error) {
-          console.error('Error stopping audio:', error);
         }
         set({ isPlayerHidden: true, isPlayerCompletelyHidden: true, isPlaying: false });
       },
